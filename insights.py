@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
+@st.cache_data
 def preprocess_data(uploaded_file):
     """Preprocess the uploaded Goodreads CSV file."""
     df = pd.read_csv(uploaded_file)
@@ -17,8 +18,11 @@ def preprocess_data(uploaded_file):
     df.loc[df['My Rating'] == 0, 'My Rating'] = pd.NA
     df['Average Rating'] = pd.to_numeric(df.get('Average Rating'), errors='coerce')
     df['Date Read'] = pd.to_datetime(df.get('Date Read'), errors='coerce').dt.date
+    if 'Number of Pages' in df.columns:
+        df['Number of Pages'] = pd.to_numeric(df['Number of Pages'], errors='coerce')
     return df
 
+@st.cache_data
 def calculate_metrics(df):
     """Calculate key metrics from the data."""
     if 'Exclusive Shelf' in df.columns:
@@ -34,6 +38,7 @@ def calculate_metrics(df):
     }
     return read_df, metrics
 
+@st.cache_data
 def generate_books_per_year_chart(df):
     """Generate a bar chart for books read per year."""
     timeline = df.dropna(subset=['Date Read']).copy()
@@ -51,20 +56,21 @@ def generate_books_per_year_chart(df):
     fig.update_xaxes(type='category')
     return fig
 
-def generate_top_authors_chart(df):
+@st.cache_data
+def generate_top_authors_chart(df, top_n):
     """Generate a bar chart for top authors."""
     if 'Author' not in df.columns or df['Author'].dropna().empty:
         return None, None
     top_authors = df['Author'].value_counts().reset_index()
     top_authors.columns = ['Author', 'Count']
-    top_authors = top_authors.head(15)
+    top_authors = top_authors.head(top_n)
     max_count = top_authors['Count'].max() if not top_authors.empty else 0
     y_max = max(max_count * 1.15, max_count + 1)
     fig = px.bar(
         top_authors,
         x='Author',
         y='Count',
-        title="Top Authors",
+        title=f"Top {top_n} Authors",
         text='Count',
         height=520
     )
@@ -84,18 +90,18 @@ def display_metrics(metrics):
     c3.metric("Avg. Goodreads Rating", f"{metrics['avg_community_rating']:.2f}" if pd.notna(metrics['avg_community_rating']) else "N/A")
     c4.metric("Unique Authors", metrics["total_authors"])
 
-def display_top_rated_books(df):
+def display_top_rated_books(df, top_n):
     """Display the top-rated books."""
     top_rated = (
         df.dropna(subset=['My Rating'])
         .sort_values(by='My Rating', ascending=False)
-        .head(10)
+        .head(top_n)
         [['Title', 'Author', 'My Rating', 'Average Rating', 'Date Read']]
         .reset_index(drop=True)
     )
     top_rated['My Rating'] = top_rated['My Rating'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
     top_rated['Average Rating'] = top_rated['Average Rating'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
-    st.subheader("Your Top Rated Books")
+    st.subheader(f"Your Top {top_n} Rated Books")
     st.table(top_rated.set_index(pd.Index(range(1, len(top_rated) + 1))))
 
 def display_longest_shortest_books(df):
@@ -134,7 +140,8 @@ def main():
             st.plotly_chart(fig1, use_container_width=True)
 
         st.subheader("Top Authors")
-        fig2, top_authors = generate_top_authors_chart(read_df)
+        top_n_authors = st.slider("Select the number of top authors to display:", min_value=5, max_value=30, value=15)
+        fig2, top_authors = generate_top_authors_chart(read_df, top_n_authors)
         if fig2:
             st.plotly_chart(fig2, use_container_width=True)
             selected_author = st.selectbox("Select an author to view their books:", top_authors['Author'])
@@ -151,7 +158,9 @@ def main():
         else:
             st.info("No author data found.")
 
-        display_top_rated_books(read_df)
+        top_n_books = st.slider("Select the number of top-rated books to display:", min_value=5, max_value=20, value=10)
+        display_top_rated_books(read_df, top_n_books)
+
         display_longest_shortest_books(read_df)
 
         with st.expander("See Raw Data"):
