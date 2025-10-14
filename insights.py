@@ -2,6 +2,18 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
+def format_column(df, column_name, format_func):
+    """Apply a formatting function to a column if it exists."""
+    if column_name in df.columns:
+        df[column_name] = df[column_name].apply(format_func)
+
+def handle_missing_pages(df):
+    """Handle missing or zero values in the 'Number of Pages' column."""
+    if 'Number of Pages' in df.columns:
+        df['Number of Pages'] = pd.to_numeric(df['Number of Pages'], errors='coerce')
+        df['Number of Pages'] = df['Number of Pages'].replace(0, pd.NA)
+        df['Number of Pages'] = df['Number of Pages'].fillna("Unknown")
+
 @st.cache_data
 def preprocess_data(uploaded_file):
     """Preprocess the uploaded Goodreads CSV file."""
@@ -18,8 +30,7 @@ def preprocess_data(uploaded_file):
     df.loc[df['My Rating'] == 0, 'My Rating'] = pd.NA
     df['Average Rating'] = pd.to_numeric(df.get('Average Rating'), errors='coerce')
     df['Date Read'] = pd.to_datetime(df.get('Date Read'), errors='coerce').dt.date
-    if 'Number of Pages' in df.columns:
-        df['Number of Pages'] = pd.to_numeric(df['Number of Pages'], errors='coerce')
+    handle_missing_pages(df)
     return df
 
 @st.cache_data
@@ -99,22 +110,26 @@ def display_top_rated_books(df, top_n):
         [['Title', 'Author', 'My Rating', 'Average Rating', 'Date Read']]
         .reset_index(drop=True)
     )
-    top_rated['My Rating'] = top_rated['My Rating'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
-    top_rated['Average Rating'] = top_rated['Average Rating'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
+    format_column(top_rated, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
+    format_column(top_rated, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
     st.subheader(f"Your Top {top_n} Rated Books")
     st.table(top_rated.set_index(pd.Index(range(1, len(top_rated) + 1))))
 
 def display_longest_shortest_books(df):
     """Display the longest and shortest books."""
-    if 'Number of Pages' not in df.columns:
+    if 'Number of Pages' not in df.columns or df['Number of Pages'].isna().all():
+        st.info("No data available for 'Number of Pages'.")
         return
-    df['Number of Pages'] = pd.to_numeric(df['Number of Pages'], errors='coerce')
-    if df['Number of Pages'].dropna().empty:
+    handle_missing_pages(df)
+    valid_books = df[df['Number of Pages'] != "Unknown"].copy()
+    valid_books['Number of Pages'] = pd.to_numeric(valid_books['Number of Pages'], errors='coerce')
+    if valid_books.empty or valid_books['Number of Pages'].isna().all():
+        st.info("No valid data available for 'Number of Pages'.")
         return
-    longest = df.nlargest(5, 'Number of Pages')[['Title', 'Author', 'Number of Pages']].reset_index(drop=True)
-    shortest = df.nsmallest(5, 'Number of Pages')[['Title', 'Author', 'Number of Pages']].reset_index(drop=True)
-    longest['Number of Pages'] = longest['Number of Pages'].astype('Int64')
-    shortest['Number of Pages'] = shortest['Number of Pages'].astype('Int64')
+    longest = valid_books.nlargest(5, 'Number of Pages')[['Title', 'Author', 'Number of Pages']].reset_index(drop=True)
+    shortest = valid_books.nsmallest(5, 'Number of Pages')[['Title', 'Author', 'Number of Pages']].reset_index(drop=True)
+    longest['Number of Pages'] = longest['Number of Pages'].round().astype('Int64')
+    shortest['Number of Pages'] = shortest['Number of Pages'].round().astype('Int64')
     col1, col2 = st.columns(2)
     with col1:
         st.write("**Longest Books**")
@@ -151,8 +166,8 @@ def main():
                 .sort_values(by='Date Read', ascending=False)
                 .reset_index(drop=True)
             )
-            author_books['My Rating'] = author_books['My Rating'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
-            author_books['Average Rating'] = author_books['Average Rating'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
+            format_column(author_books, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
+            format_column(author_books, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
             st.write(f"### Books by **{selected_author}** ({len(author_books)} total)")
             st.dataframe(author_books.set_index(pd.Index(range(1, len(author_books) + 1))))
         else:
@@ -165,10 +180,8 @@ def main():
 
         with st.expander("See Raw Data"):
             display_df = read_df.copy()
-            display_df['My Rating'] = display_df['My Rating'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
-            display_df['Average Rating'] = display_df['Average Rating'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
-            if 'Number of Pages' in display_df.columns:
-                display_df['Number of Pages'] = pd.to_numeric(display_df['Number of Pages'], errors='coerce').astype('Int64')
+            format_column(display_df, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
+            format_column(display_df, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
             st.dataframe(display_df.set_index(pd.Index(range(1, len(display_df) + 1))))
     else:
         st.info("Upload your Goodreads CSV file to see your reading insights.")
