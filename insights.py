@@ -76,7 +76,7 @@ def generate_books_per_year_chart(df):
     )
     fig.update_traces(textposition='outside')
     fig.update_xaxes(type='category')
-    fig.update_layout(margin=dict(t=80, b=40, l=40, r=40))  # Adjust margins
+    fig.update_layout(margin=dict(t=80, b=40, l=40, r=40)) 
     return fig
 
 @st.cache_data
@@ -122,7 +122,7 @@ def generate_top_publishers_chart(df, top_n):
     fig.update_traces(textposition='outside')
     fig.update_layout(
         xaxis=dict(title='Publisher', automargin=True),
-        margin=dict(t=80, b=40, l=40, r=40)  # Adjust margins
+        margin=dict(t=80, b=40, l=40, r=40) 
     )
     return fig
 
@@ -160,7 +160,7 @@ def generate_books_by_year_published_chart(df):
     fig.update_traces(textposition='outside')
     fig.update_layout(
         xaxis=dict(title='Year Published', automargin=True),
-        margin=dict(t=80, b=40, l=40, r=40)  # Adjust margins
+        margin=dict(t=80, b=40, l=40, r=40)
     )
     return fig
 
