@@ -67,9 +67,16 @@ def generate_books_per_year_chart(df):
         .reset_index(name='Books')
         .sort_values('Year')
     )
-    fig = px.bar(books_per_year, x='Year', y='Books', text='Books', title="Books Read per Year")
+    fig = px.bar(
+        books_per_year,
+        x='Year',
+        y='Books',
+        text='Books',
+        title="Books Read Each Year"
+    )
     fig.update_traces(textposition='outside')
     fig.update_xaxes(type='category')
+    fig.update_layout(margin=dict(t=80, b=40, l=40, r=40))  # Adjust margins
     return fig
 
 @st.cache_data
@@ -86,7 +93,7 @@ def generate_top_authors_chart(df, top_n):
         top_authors,
         x='Author',
         y='Count',
-        title=f"Top {top_n} Authors",
+        title=f"Top {top_n} Authors by Books Read",
         text='Count',
         height=520
     )
@@ -108,12 +115,15 @@ def generate_top_publishers_chart(df, top_n):
         top_publishers,
         x='Publisher',
         y='Count',
-        title=f"Top {top_n} Publishers Read",
+        title=f"Top {top_n} Publishers by Books Read",
         text='Count',
-        labels={'Publisher': 'Publisher', 'Count': 'Books Published'}
+        labels={'Publisher': 'Publisher', 'Count': 'Books Read'}
     )
     fig.update_traces(textposition='outside')
-    fig.update_layout(xaxis=dict(title='Publisher', automargin=True))
+    fig.update_layout(
+        xaxis=dict(title='Publisher', automargin=True),
+        margin=dict(t=80, b=40, l=40, r=40)  # Adjust margins
+    )
     return fig
 
 def generate_binding_distribution_chart(df):
@@ -143,12 +153,15 @@ def generate_books_by_year_published_chart(df):
         year_counts,
         x='Year Published',
         y='Count',
-        title="Books Read by Year Published",
+        title="Books Read by Year of Publication",
         text='Count',
-        labels={'Year Published': 'Year', 'Count': 'Books'}
+        labels={'Year Published': 'Year', 'Count': 'Books Read'}
     )
     fig.update_traces(textposition='outside')
-    fig.update_layout(xaxis=dict(title='Year Published', automargin=True))
+    fig.update_layout(
+        xaxis=dict(title='Year Published', automargin=True),
+        margin=dict(t=80, b=40, l=40, r=40)  # Adjust margins
+    )
     return fig
 
 def display_metrics(metrics):
