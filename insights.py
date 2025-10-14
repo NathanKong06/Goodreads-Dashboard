@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+from datetime import timedelta
 
 def format_column(df, column_name, format_func):
     """Apply a formatting function to a column if it exists."""
@@ -97,8 +98,8 @@ def display_metrics(metrics):
     """Display key metrics in Streamlit columns."""
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Books Read", metrics["total_books"])
-    c2.metric("Avg. Your Rating", f"{metrics['avg_rating']:.2f}" if pd.notna(metrics['avg_rating']) else "N/A")
-    c3.metric("Avg. Goodreads Rating", f"{metrics['avg_community_rating']:.2f}" if pd.notna(metrics['avg_community_rating']) else "N/A")
+    c2.metric("Your Avgerage Rating", f"{metrics['avg_rating']:.2f}" if pd.notna(metrics['avg_rating']) else "N/A")
+    c3.metric("Average Goodreads Rating", f"{metrics['avg_community_rating']:.2f}" if pd.notna(metrics['avg_community_rating']) else "N/A")
     c4.metric("Unique Authors", metrics["total_authors"])
 
 def display_top_rated_books(df, top_n):
@@ -138,6 +139,66 @@ def display_longest_shortest_books(df):
         st.write("**Shortest Books**")
         st.table(shortest.set_index(pd.Index(range(1, len(shortest) + 1))))
 
+def calculate_reading_streak(df):
+    """Calculate the longest reading streak (consecutive days with books read)."""
+    if 'Date Read' not in df.columns or df['Date Read'].isna().all():
+        return 0
+    dates = pd.to_datetime(df['Date Read'].dropna()).sort_values().unique()
+    streak, max_streak = 1, 1
+    for i in range(1, len(dates)):
+        if dates[i] - dates[i - 1] == timedelta(days=1):
+            streak += 1
+            max_streak = max(max_streak, streak)
+        else:
+            streak = 1
+    return max_streak
+
+def generate_cumulative_pages_chart(df):
+    """Generate a line chart for cumulative pages read over time."""
+    if 'Date Read' not in df.columns or 'Number of Pages' not in df.columns:
+        return None
+    pages_df = df.dropna(subset=['Date Read', 'Number of Pages']).copy()
+    pages_df = pages_df[pages_df['Number of Pages'] != "Unknown"]
+    pages_df['Number of Pages'] = pd.to_numeric(pages_df['Number of Pages'], errors='coerce')
+    pages_df['Date Read'] = pd.to_datetime(pages_df['Date Read'])
+    pages_df = pages_df.sort_values('Date Read')
+    pages_df['Cumulative Pages'] = pages_df['Number of Pages'].cumsum()
+    fig = px.line(
+        pages_df,
+        x='Date Read',
+        y='Cumulative Pages',
+        title="Cumulative Pages Read Over Time",
+        labels={'Date Read': 'Date', 'Cumulative Pages': 'Cumulative Pages'}
+    )
+    return fig
+
+def calculate_average_pages_per_month(df):
+    """Calculate the average number of pages read per month."""
+    if 'Date Read' not in df.columns or 'Number of Pages' not in df.columns:
+        return 0
+    pages_df = df.dropna(subset=['Date Read', 'Number of Pages']).copy()
+    pages_df = pages_df[pages_df['Number of Pages'] != "Unknown"]
+    pages_df['Number of Pages'] = pd.to_numeric(pages_df['Number of Pages'], errors='coerce')
+    pages_df['YearMonth'] = pd.to_datetime(pages_df['Date Read']).dt.to_period('M')
+    pages_per_month = pages_df.groupby('YearMonth')['Number of Pages'].sum()
+    return pages_per_month.mean()
+
+def calculate_total_pages_read(df):
+    """Calculate the total number of pages read."""
+    if 'Number of Pages' not in df.columns:
+        return 0
+    pages_df = df.dropna(subset=['Number of Pages']).copy()
+    pages_df = pages_df[pages_df['Number of Pages'] != "Unknown"]
+    pages_df['Number of Pages'] = pd.to_numeric(pages_df['Number of Pages'], errors='coerce')
+    return pages_df['Number of Pages'].sum()
+
+def calculate_most_books_in_one_day(df):
+    """Calculate the most books finished in one day."""
+    if 'Date Read' not in df.columns:
+        return 0
+    date_counts = df['Date Read'].dropna().value_counts()
+    return date_counts.max() if not date_counts.empty else 0
+
 def main():
     st.set_page_config(page_title="Goodreads Dashboard", layout="wide")
     st.title("Goodreads Reading Insights Dashboard")
@@ -148,6 +209,22 @@ def main():
             return  
         read_df, metrics = calculate_metrics(df)
         display_metrics(metrics)
+
+        # Reading Pace and Pages Insights
+        st.subheader("Reading Pace and Pages Insights")
+        avg_pages_per_month = calculate_average_pages_per_month(read_df)
+        total_pages_read = calculate_total_pages_read(read_df)
+        longest_streak = calculate_reading_streak(read_df)
+        most_books_in_one_day = calculate_most_books_in_one_day(read_df)
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Average Pages per Month", f"{avg_pages_per_month:.2f}" if avg_pages_per_month > 0 else "N/A")
+        c2.metric("Total Pages Read", f"{int(total_pages_read):,}" if total_pages_read > 0 else "N/A")
+        c3.metric("Longest Reading Streak", f"{longest_streak} days" if longest_streak > 0 else "N/A")
+        c4.metric("Most Books Completed in One Day", f"{most_books_in_one_day}" if most_books_in_one_day > 0 else "N/A")
+
+        cumulative_pages_chart = generate_cumulative_pages_chart(read_df)
+        if cumulative_pages_chart:
+            st.plotly_chart(cumulative_pages_chart, use_container_width=True)
 
         st.subheader("Reading Trends")
         fig1 = generate_books_per_year_chart(read_df)
