@@ -31,6 +31,10 @@ def preprocess_data(uploaded_file):
     df.loc[df['My Rating'] == 0, 'My Rating'] = pd.NA
     df['Average Rating'] = pd.to_numeric(df.get('Average Rating'), errors='coerce')
     df['Date Read'] = pd.to_datetime(df.get('Date Read'), errors='coerce').dt.date
+
+    if 'Publisher' in df.columns:
+        df['Publisher'] = df['Publisher'].str.title()
+
     handle_missing_pages(df)
     return df
 
@@ -263,7 +267,6 @@ def main():
         read_df, metrics = calculate_metrics(df)
         display_metrics(metrics)
 
-        # Reading Pace and Pages Insights
         st.subheader("Reading Pace and Pages Insights")
         avg_pages_per_month = calculate_average_pages_per_month(read_df)
         total_pages_read = calculate_total_pages_read(read_df)
