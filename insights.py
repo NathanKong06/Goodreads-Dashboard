@@ -6,6 +6,13 @@ def preprocess_data(uploaded_file):
     """Preprocess the uploaded Goodreads CSV file."""
     df = pd.read_csv(uploaded_file)
     df.columns = df.columns.str.strip()
+
+    required_columns = {'My Rating', 'Average Rating', 'Date Read', 'Author'}
+    missing_columns = required_columns - set(df.columns)
+    if missing_columns:
+        st.error(f"The uploaded file is missing the following required columns: {', '.join(missing_columns)}")
+        return None
+
     df['My Rating'] = pd.to_numeric(df.get('My Rating', 0), errors='coerce')
     df.loc[df['My Rating'] == 0, 'My Rating'] = pd.NA
     df['Average Rating'] = pd.to_numeric(df.get('Average Rating'), errors='coerce')
@@ -116,6 +123,8 @@ def main():
     uploaded_file = st.file_uploader("Upload your Goodreads export CSV", type=["csv"])
     if uploaded_file is not None:
         df = preprocess_data(uploaded_file)
+        if df is None:
+            return  
         read_df, metrics = calculate_metrics(df)
         display_metrics(metrics)
 
