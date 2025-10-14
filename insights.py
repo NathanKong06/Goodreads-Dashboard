@@ -269,6 +269,20 @@ def calculate_most_books_in_one_day(df):
     date_counts = df['Date Read'].dropna().value_counts()
     return date_counts.max() if not date_counts.empty else 0
 
+def display_top_books_by_goodreads_rating(df, top_n):
+    """Display the top-rated books by Goodreads averages."""
+    top_rated_goodreads = (
+        df.dropna(subset=['Average Rating'])
+        .sort_values(by='Average Rating', ascending=False)
+        .head(top_n)
+        [['Title', 'Author', 'Average Rating', 'My Rating', 'Date Read']]
+        .reset_index(drop=True)
+    )
+    format_column(top_rated_goodreads, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
+    format_column(top_rated_goodreads, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
+    st.subheader(f"Top {top_n} Books by Goodreads Average Rating")
+    st.table(top_rated_goodreads.set_index(pd.Index(range(1, len(top_rated_goodreads) + 1))))
+
 def main():
     st.set_page_config(page_title="Goodreads Dashboard", layout="wide")
     st.title("Goodreads Reading Insights Dashboard")
@@ -301,11 +315,11 @@ def main():
             st.plotly_chart(fig1, use_container_width=True)
 
         st.subheader("Top Authors")
-        top_n_authors = st.slider("Select the number of top authors to display:", min_value=5, max_value=20, value=10)
+        top_n_authors = st.slider("Select the number of top authors to display:", min_value=5, max_value=20, value=10, key="top_authors_slider")
         fig2, top_authors = generate_top_authors_chart(read_df, top_n_authors)
         if fig2:
             st.plotly_chart(fig2, use_container_width=True)
-            selected_author = st.selectbox("Select an author to view their books:", top_authors['Author'])
+            selected_author = st.selectbox("Select an author to view their books:", top_authors['Author'], key="author_selectbox")
             author_books = (
                 read_df[read_df['Author'] == selected_author]
                 [['Title', 'My Rating', 'Average Rating', 'Date Read']]
@@ -320,7 +334,7 @@ def main():
             st.info("No author data found.")
 
         st.subheader("Publisher Insights")
-        top_n_publishers = st.slider("Select the number of top publishers to display:", min_value=3, max_value=10, value=5)
+        top_n_publishers = st.slider("Select the number of top publishers to display:", min_value=3, max_value=10, value=5, key="top_publishers_slider")
         top_publishers_chart = generate_top_publishers_chart(read_df, top_n_publishers)
         if top_publishers_chart:
             st.plotly_chart(top_publishers_chart, use_container_width=True)
@@ -335,8 +349,13 @@ def main():
         if books_by_year_published_chart:
             st.plotly_chart(books_by_year_published_chart, use_container_width=True)
 
-        top_n_books = st.slider("Select the number of top-rated books to display:", min_value=5, max_value=20, value=10)
+        st.subheader("Your Top Rated Books")
+        top_n_books = st.slider("Select the number of top-rated books to display:", min_value=5, max_value=20, value=10, key="top_rated_books_slider")
         display_top_rated_books(read_df, top_n_books)
+
+        st.subheader("Top Books by Goodreads Average Rating")
+        top_n_goodreads_books = st.slider("Select the number of top Goodreads-rated books to display:", min_value=5, max_value=20, value=10, key="goodreads_top_books_slider")
+        display_top_books_by_goodreads_rating(read_df, top_n_goodreads_books)
 
         display_longest_shortest_books(read_df)
 
