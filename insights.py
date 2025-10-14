@@ -132,7 +132,7 @@ def generate_binding_distribution_chart(df):
     return fig
 
 def generate_books_by_year_published_chart(df):
-    """Generate a bar chart for books by year published."""
+    """Generate a bar chart for books read by year published."""
     if 'Year Published' not in df.columns or df['Year Published'].dropna().empty:
         return None
     year_published = pd.to_numeric(df['Year Published'], errors='coerce').dropna().astype(int)
@@ -143,7 +143,7 @@ def generate_books_by_year_published_chart(df):
         year_counts,
         x='Year Published',
         y='Count',
-        title="Books by Year Published",
+        title="Books Read by Year Published",
         text='Count',
         labels={'Year Published': 'Year', 'Count': 'Books'}
     )
@@ -317,7 +317,7 @@ def main():
         if binding_distribution_chart:
             st.plotly_chart(binding_distribution_chart, use_container_width=True)
 
-        st.subheader("Books by Year Published")
+        st.subheader("Books Read by Year Published")
         books_by_year_published_chart = generate_books_by_year_published_chart(read_df)
         if books_by_year_published_chart:
             st.plotly_chart(books_by_year_published_chart, use_container_width=True)
