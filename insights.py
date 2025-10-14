@@ -94,6 +94,59 @@ def generate_top_authors_chart(df, top_n):
     )
     return fig, top_authors
 
+def generate_top_publishers_chart(df, top_n):
+    """Generate a bar chart for top publishers."""
+    if 'Publisher' not in df.columns or df['Publisher'].dropna().empty:
+        return None
+    top_publishers = df['Publisher'].value_counts().head(top_n).reset_index()
+    top_publishers.columns = ['Publisher', 'Count']
+    fig = px.bar(
+        top_publishers,
+        x='Publisher',
+        y='Count',
+        title=f"Top {top_n} Publishers Read",
+        text='Count',
+        labels={'Publisher': 'Publisher', 'Count': 'Books Published'}
+    )
+    fig.update_traces(textposition='outside')
+    fig.update_layout(xaxis=dict(title='Publisher', automargin=True))
+    return fig
+
+def generate_binding_distribution_chart(df):
+    """Generate a pie chart for binding distribution."""
+    if 'Binding' not in df.columns or df['Binding'].dropna().empty:
+        return None
+    binding_counts = df['Binding'].value_counts().reset_index()
+    binding_counts.columns = ['Binding', 'Count']
+    fig = px.pie(
+        binding_counts,
+        names='Binding',
+        values='Count',
+        title="Binding Distribution",
+        labels={'Binding': 'Binding Type', 'Count': 'Books'}
+    )
+    return fig
+
+def generate_books_by_year_published_chart(df):
+    """Generate a bar chart for books by year published."""
+    if 'Year Published' not in df.columns or df['Year Published'].dropna().empty:
+        return None
+    year_published = pd.to_numeric(df['Year Published'], errors='coerce').dropna().astype(int)
+    year_counts = year_published.value_counts().reset_index()
+    year_counts.columns = ['Year Published', 'Count']
+    year_counts = year_counts.sort_values('Year Published')
+    fig = px.bar(
+        year_counts,
+        x='Year Published',
+        y='Count',
+        title="Books by Year Published",
+        text='Count',
+        labels={'Year Published': 'Year', 'Count': 'Books'}
+    )
+    fig.update_traces(textposition='outside')
+    fig.update_layout(xaxis=dict(title='Year Published', automargin=True))
+    return fig
+
 def display_metrics(metrics):
     """Display key metrics in Streamlit columns."""
     c1, c2, c3, c4 = st.columns(4)
@@ -232,7 +285,7 @@ def main():
             st.plotly_chart(fig1, use_container_width=True)
 
         st.subheader("Top Authors")
-        top_n_authors = st.slider("Select the number of top authors to display:", min_value=5, max_value=30, value=15)
+        top_n_authors = st.slider("Select the number of top authors to display:", min_value=5, max_value=20, value=10)
         fig2, top_authors = generate_top_authors_chart(read_df, top_n_authors)
         if fig2:
             st.plotly_chart(fig2, use_container_width=True)
@@ -249,6 +302,22 @@ def main():
             st.dataframe(author_books.set_index(pd.Index(range(1, len(author_books) + 1))))
         else:
             st.info("No author data found.")
+
+        st.subheader("Publisher Insights")
+        top_n_publishers = st.slider("Select the number of top publishers to display:", min_value=3, max_value=10, value=5)
+        top_publishers_chart = generate_top_publishers_chart(read_df, top_n_publishers)
+        if top_publishers_chart:
+            st.plotly_chart(top_publishers_chart, use_container_width=True)
+
+        st.subheader("Binding Distribution")
+        binding_distribution_chart = generate_binding_distribution_chart(read_df)
+        if binding_distribution_chart:
+            st.plotly_chart(binding_distribution_chart, use_container_width=True)
+
+        st.subheader("Books by Year Published")
+        books_by_year_published_chart = generate_books_by_year_published_chart(read_df)
+        if books_by_year_published_chart:
+            st.plotly_chart(books_by_year_published_chart, use_container_width=True)
 
         top_n_books = st.slider("Select the number of top-rated books to display:", min_value=5, max_value=20, value=10)
         display_top_rated_books(read_df, top_n_books)
