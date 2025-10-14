@@ -185,9 +185,9 @@ def calculate_average_pages_per_month(df):
 
 def calculate_total_pages_read(df):
     """Calculate the total number of pages read."""
-    if 'Number of Pages' not in df.columns:
+    if 'Date Read' not in df.columns or 'Number of Pages' not in df.columns:
         return 0
-    pages_df = df.dropna(subset=['Number of Pages']).copy()
+    pages_df = df.dropna(subset=['Date Read', 'Number of Pages']).copy()
     pages_df = pages_df[pages_df['Number of Pages'] != "Unknown"]
     pages_df['Number of Pages'] = pd.to_numeric(pages_df['Number of Pages'], errors='coerce')
     return pages_df['Number of Pages'].sum()
