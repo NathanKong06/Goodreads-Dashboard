@@ -11,7 +11,6 @@ def handle_missing_pages(df):
     if 'Number of Pages' in df.columns:
         df['Number of Pages'] = pd.to_numeric(df['Number of Pages'], errors='coerce')
         df.loc[df['Number of Pages'] == 0, 'Number of Pages'] = pd.NA
-        df['Number of Pages'] = df['Number of Pages'].fillna("Unknown")
 
 def get_all_authors(df):
     all_authors = []
@@ -232,7 +231,7 @@ def display_longest_shortest_books(df):
         st.info("No data available for 'Number of Pages'.")
         return
     handle_missing_pages(df)
-    valid_books = df[df['Number of Pages'] != "Unknown"].copy()
+    valid_books = df.dropna(subset=['Number of Pages']).copy()
     valid_books['Number of Pages'] = pd.to_numeric(valid_books['Number of Pages'], errors='coerce')
     if valid_books.empty or valid_books['Number of Pages'].isna().all():
         st.info("No valid data available for 'Number of Pages'.")
@@ -286,7 +285,7 @@ def generate_cumulative_pages_chart(df):
     if 'Date Read' not in df.columns or 'Number of Pages' not in df.columns:
         return None
     pages_df = df.dropna(subset=['Date Read', 'Number of Pages']).copy()
-    pages_df = pages_df[pages_df['Number of Pages'] != "Unknown"]
+    pages_df = pages_df.dropna(subset=['Number of Pages'])
     pages_df['Number of Pages'] = pd.to_numeric(pages_df['Number of Pages'], errors='coerce')
     pages_df['Date Read'] = pd.to_datetime(pages_df['Date Read'])
     pages_df = pages_df.sort_values('Date Read')
@@ -305,7 +304,7 @@ def calculate_average_pages_per_month(df):
     if 'Date Read' not in df.columns or 'Number of Pages' not in df.columns:
         return 0
     pages_df = df.dropna(subset=['Date Read', 'Number of Pages']).copy()
-    pages_df = pages_df[pages_df['Number of Pages'] != "Unknown"]
+    pages_df = pages_df.dropna(subset=['Number of Pages'])
     pages_df['Number of Pages'] = pd.to_numeric(pages_df['Number of Pages'], errors='coerce')
     pages_df['YearMonth'] = pd.to_datetime(pages_df['Date Read']).dt.to_period('M')
     pages_per_month = pages_df.groupby('YearMonth')['Number of Pages'].sum()
@@ -316,7 +315,7 @@ def calculate_total_pages_read(df):
     if 'Date Read' not in df.columns or 'Number of Pages' not in df.columns:
         return 0
     pages_df = df.dropna(subset=['Date Read', 'Number of Pages']).copy()
-    pages_df = pages_df[pages_df['Number of Pages'] != "Unknown"]
+    pages_df = pages_df.dropna(subset=['Number of Pages'])
     pages_df['Number of Pages'] = pd.to_numeric(pages_df['Number of Pages'], errors='coerce')
     return pages_df['Number of Pages'].sum()
 
