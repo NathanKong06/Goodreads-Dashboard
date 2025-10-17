@@ -15,6 +15,48 @@ def handle_missing_pages(df):
         df.loc[df['Number of Pages'] == 0, 'Number of Pages'] = pd.NA
         df['Number of Pages'] = df['Number of Pages'].fillna("Unknown")
 
+def get_all_authors(df):
+    """Extract all authors from both 'Author' and 'Additional Authors' columns."""
+    all_authors = []
+    
+    # Get primary authors
+    if 'Author' in df.columns:
+        primary_authors = df['Author'].dropna().tolist()
+        all_authors.extend(primary_authors)
+    
+    # Get additional authors
+    if 'Additional Authors' in df.columns:
+        additional_authors = df['Additional Authors'].dropna().tolist()
+        for author_string in additional_authors:
+            if pd.notna(author_string) and str(author_string).strip():
+                # Split by comma and clean up each author name
+                authors = [author.strip() for author in str(author_string).split(',')]
+                # Remove empty strings and normalize multiple spaces
+                authors = [' '.join(author.split()) for author in authors if author.strip()]
+                all_authors.extend(authors)
+    
+    return all_authors
+
+def get_books_by_author(df, author_name):
+    """Get books where the specified author appears in either 'Author' or 'Additional Authors' columns."""
+    # Check primary author column
+    primary_matches = df['Author'] == author_name if 'Author' in df.columns else pd.Series([False] * len(df))
+    
+    # Check additional authors column
+    additional_matches = pd.Series([False] * len(df))
+    if 'Additional Authors' in df.columns:
+        for idx, additional_authors in df['Additional Authors'].items():
+            if pd.notna(additional_authors) and str(additional_authors).strip():
+                # Split and clean additional authors
+                authors = [author.strip() for author in str(additional_authors).split(',')]
+                authors = [' '.join(author.split()) for author in authors if author.strip()]
+                if author_name in authors:
+                    additional_matches.iloc[idx] = True
+    
+    # Combine both conditions
+    combined_matches = primary_matches | additional_matches
+    return df[combined_matches]
+
 @st.cache_data
 def preprocess_data(uploaded_file):
     """Preprocess the uploaded Goodreads CSV file."""
@@ -46,11 +88,15 @@ def calculate_metrics(df):
     else:
         read_df = df.dropna(subset=['Date Read']).copy()
 
+    # Calculate unique authors including additional authors
+    all_authors = get_all_authors(read_df)
+    unique_authors = len(set(all_authors)) if all_authors else 0
+
     metrics = {
         "total_books": len(read_df),
         "avg_rating": read_df['My Rating'].mean(),
         "avg_community_rating": read_df['Average Rating'].mean(),
-        "total_authors": read_df['Author'].nunique()
+        "total_authors": unique_authors
     }
     return read_df, metrics
 
@@ -81,19 +127,26 @@ def generate_books_per_year_chart(df):
 
 @st.cache_data
 def generate_top_authors_chart(df, top_n):
-    """Generate a bar chart for top authors."""
-    if 'Author' not in df.columns or df['Author'].dropna().empty:
+    """Generate a bar chart for top authors including additional authors."""
+    # Get all authors from both columns
+    all_authors = get_all_authors(df)
+    
+    if not all_authors:
         return None, None
-    top_authors = df['Author'].value_counts().reset_index()
-    top_authors.columns = ['Author', 'Count']
-    top_authors = top_authors.head(top_n)
+    
+    # Count author occurrences
+    author_counts = pd.Series(all_authors).value_counts().reset_index()
+    author_counts.columns = ['Author', 'Count']
+    top_authors = author_counts.head(top_n)
+    
     max_count = top_authors['Count'].max() if not top_authors.empty else 0
     y_max = max(max_count * 1.15, max_count + 1)
+    
     fig = px.bar(
         top_authors,
         x='Author',
         y='Count',
-        title=f"Top {top_n} Authors by Books Read",
+        title=f"Top {top_n} Authors by Books Read (Including Co-authors)",
         text='Count',
         height=520
     )
@@ -330,15 +383,16 @@ def main():
         c2.metric("Total Pages Read", f"{int(total_pages_read):,}" if total_pages_read > 0 else "N/A")
         
         if longest_streak > 0 and streak_start and streak_end:
-            streak_display = f"{longest_streak} days"
             if streak_start == streak_end:
-                streak_display += f"\n({streak_start.strftime('%Y-%m-%d')})"
+                date_display = f"<br><span style='font-size: 0.8em; color: #666; line-height: 2.5;'>({streak_start.strftime('%Y-%m-%d')})</span>"
             else:
-                streak_display += f"\n({streak_start.strftime('%Y-%m-%d')} to {streak_end.strftime('%Y-%m-%d')})"
+                date_display = f"<br><span style='font-size: 0.8em; color: #666; line-height: 2.5;'>({streak_start.strftime('%Y-%m-%d')} to {streak_end.strftime('%Y-%m-%d')})</span>"
+            
+            with c3:
+                st.markdown("Longest Reading Streak")
+                st.markdown(f"<div style='font-size: 2rem; font-weight: normal; margin: 0; line-height: 0.5;'>{longest_streak} days{date_display}</div>", unsafe_allow_html=True)
         else:
-            streak_display = "N/A"
-        
-        c3.metric("Longest Reading Streak", streak_display)
+            c3.metric("Longest Reading Streak", "N/A")
         c4.metric("Most Books Completed in One Day", f"{most_books_in_one_day}" if most_books_in_one_day > 0 else "N/A")
 
         cumulative_pages_chart = generate_cumulative_pages_chart(read_df)
@@ -356,12 +410,8 @@ def main():
         if fig2:
             st.plotly_chart(fig2, use_container_width=True)
             selected_author = st.selectbox("Select an author to view their books:", top_authors['Author'], key="author_selectbox")
-            author_books = (
-                read_df[read_df['Author'] == selected_author]
-                [['Title', 'My Rating', 'Average Rating', 'Date Read']]
-                .sort_values(by='Date Read', ascending=False)
-                .reset_index(drop=True)
-            )
+            author_books = get_books_by_author(read_df, selected_author)
+            author_books = author_books[['Title', 'Author', 'My Rating', 'Average Rating', 'Date Read']].sort_values(by='Date Read', ascending=False).reset_index(drop=True)
             format_column(author_books, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
             format_column(author_books, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
             st.write(f"### Books by **{selected_author}** ({len(author_books)} total)")
