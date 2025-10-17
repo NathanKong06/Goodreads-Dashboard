@@ -4,91 +4,85 @@ import plotly.express as px
 from datetime import timedelta
 
 def format_column(df, column_name, format_func):
-    """Apply a formatting function to a column if it exists."""
     if column_name in df.columns:
         df[column_name] = df[column_name].apply(format_func)
 
 def handle_missing_pages(df):
-    """Handle missing or zero values in the 'Number of Pages' column."""
     if 'Number of Pages' in df.columns:
         df['Number of Pages'] = pd.to_numeric(df['Number of Pages'], errors='coerce')
         df.loc[df['Number of Pages'] == 0, 'Number of Pages'] = pd.NA
         df['Number of Pages'] = df['Number of Pages'].fillna("Unknown")
 
 def get_all_authors(df):
-    """Extract all authors from both 'Author' and 'Additional Authors' columns."""
     all_authors = []
     
-    # Get primary authors
     if 'Author' in df.columns:
         primary_authors = df['Author'].dropna().tolist()
         all_authors.extend(primary_authors)
     
-    # Get additional authors
     if 'Additional Authors' in df.columns:
         additional_authors = df['Additional Authors'].dropna().tolist()
         for author_string in additional_authors:
             if pd.notna(author_string) and str(author_string).strip():
-                # Split by comma and clean up each author name
                 authors = [author.strip() for author in str(author_string).split(',')]
-                # Remove empty strings and normalize multiple spaces
                 authors = [' '.join(author.split()) for author in authors if author.strip()]
                 all_authors.extend(authors)
     
     return all_authors
 
 def get_books_by_author(df, author_name):
-    """Get books where the specified author appears in either 'Author' or 'Additional Authors' columns."""
-    # Check primary author column
     primary_matches = df['Author'] == author_name if 'Author' in df.columns else pd.Series([False] * len(df))
     
-    # Check additional authors column
     additional_matches = pd.Series([False] * len(df))
     if 'Additional Authors' in df.columns:
-        for idx, additional_authors in df['Additional Authors'].items():
-            if pd.notna(additional_authors) and str(additional_authors).strip():
-                # Split and clean additional authors
-                authors = [author.strip() for author in str(additional_authors).split(',')]
-                authors = [' '.join(author.split()) for author in authors if author.strip()]
-                if author_name in authors:
-                    additional_matches.iloc[idx] = True
+        additional_authors_clean = df['Additional Authors'].fillna('').astype(str)
+        additional_matches = additional_authors_clean.str.contains(author_name, case=False, na=False)
     
-    # Combine both conditions
     combined_matches = primary_matches | additional_matches
     return df[combined_matches]
 
 @st.cache_data
 def preprocess_data(uploaded_file):
-    """Preprocess the uploaded Goodreads CSV file."""
-    df = pd.read_csv(uploaded_file)
-    df.columns = df.columns.str.strip()
+    try:
+        df = pd.read_csv(uploaded_file)
+        if df.empty:
+            st.error("The uploaded file is empty.")
+            return None
+            
+        df.columns = df.columns.str.strip()
 
-    required_columns = {'My Rating', 'Average Rating', 'Date Read', 'Author'}
-    missing_columns = required_columns - set(df.columns)
-    if missing_columns:
-        st.error(f"The uploaded file is missing the following required columns: {', '.join(missing_columns)}")
+        required_columns = {'My Rating', 'Average Rating', 'Date Read', 'Author'}
+        missing_columns = required_columns - set(df.columns)
+        if missing_columns:
+            st.error(f"The uploaded file is missing the following required columns: {', '.join(missing_columns)}")
+            return None
+
+        df['My Rating'] = pd.to_numeric(df.get('My Rating', 0), errors='coerce')
+        df.loc[df['My Rating'] == 0, 'My Rating'] = pd.NA
+        df['Average Rating'] = pd.to_numeric(df.get('Average Rating'), errors='coerce')
+        
+        date_series = pd.to_datetime(df.get('Date Read'), errors='coerce')
+        if date_series.isna().all():
+            st.warning("Warning: No valid dates found in 'Date Read' column. Some features may not work properly.")
+        df['Date Read'] = date_series.dt.date
+
+        if 'Publisher' in df.columns:
+            df['Publisher'] = df['Publisher'].str.title()
+
+        handle_missing_pages(df)
+        return df
+        
+    except Exception as e:
+        st.error(f"Error processing the CSV file: {str(e)}")
         return None
-
-    df['My Rating'] = pd.to_numeric(df.get('My Rating', 0), errors='coerce')
-    df.loc[df['My Rating'] == 0, 'My Rating'] = pd.NA
-    df['Average Rating'] = pd.to_numeric(df.get('Average Rating'), errors='coerce')
-    df['Date Read'] = pd.to_datetime(df.get('Date Read'), errors='coerce').dt.date
-
-    if 'Publisher' in df.columns:
-        df['Publisher'] = df['Publisher'].str.title()
-
-    handle_missing_pages(df)
-    return df
 
 @st.cache_data
 def calculate_metrics(df):
-    """Calculate key metrics from the data."""
     if 'Exclusive Shelf' in df.columns:
         read_df = df[df['Exclusive Shelf'].str.lower() == 'read']
     else:
         read_df = df.dropna(subset=['Date Read']).copy()
 
-    # Calculate unique authors including additional authors
     all_authors = get_all_authors(read_df)
     unique_authors = len(set(all_authors)) if all_authors else 0
 
@@ -102,7 +96,6 @@ def calculate_metrics(df):
 
 @st.cache_data
 def generate_books_per_year_chart(df):
-    """Generate a bar chart for books read per year."""
     timeline = df.dropna(subset=['Date Read']).copy()
     if timeline.empty:
         return None
@@ -127,14 +120,11 @@ def generate_books_per_year_chart(df):
 
 @st.cache_data
 def generate_top_authors_chart(df, top_n):
-    """Generate a bar chart for top authors including additional authors."""
-    # Get all authors from both columns
     all_authors = get_all_authors(df)
     
     if not all_authors:
         return None, None
     
-    # Count author occurrences
     author_counts = pd.Series(all_authors).value_counts().reset_index()
     author_counts.columns = ['Author', 'Count']
     top_authors = author_counts.head(top_n)
@@ -160,7 +150,6 @@ def generate_top_authors_chart(df, top_n):
 
 @st.cache_data
 def generate_top_publishers_chart(df, top_n):
-    """Generate a bar chart for top publishers."""
     if 'Publisher' not in df.columns or df['Publisher'].dropna().empty:
         return None
     top_publishers = df['Publisher'].value_counts().head(top_n).reset_index()
@@ -182,7 +171,6 @@ def generate_top_publishers_chart(df, top_n):
 
 @st.cache_data
 def generate_binding_distribution_chart(df):
-    """Generate a pie chart for binding distribution."""
     if 'Binding' not in df.columns or df['Binding'].dropna().empty:
         return None
     binding_counts = df['Binding'].value_counts().reset_index()
@@ -198,7 +186,6 @@ def generate_binding_distribution_chart(df):
 
 @st.cache_data
 def generate_books_by_year_published_chart(df):
-    """Generate a bar chart for books read by year published."""
     if 'Year Published' not in df.columns or df['Year Published'].dropna().empty:
         return None
     year_published = pd.to_numeric(df['Year Published'], errors='coerce').dropna().astype(int)
@@ -221,15 +208,13 @@ def generate_books_by_year_published_chart(df):
     return fig
 
 def display_metrics(metrics):
-    """Display key metrics in Streamlit columns."""
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Books Read", metrics["total_books"])
-    c2.metric("Your Avgerage Rating", f"{metrics['avg_rating']:.2f}" if pd.notna(metrics['avg_rating']) else "N/A")
+    c2.metric("Your Average Rating", f"{metrics['avg_rating']:.2f}" if pd.notna(metrics['avg_rating']) else "N/A")
     c3.metric("Average Goodreads Rating", f"{metrics['avg_community_rating']:.2f}" if pd.notna(metrics['avg_community_rating']) else "N/A")
     c4.metric("Unique Authors", metrics["total_authors"])
 
 def display_top_rated_books(df, top_n):
-    """Display the top-rated books."""
     top_rated = (
         df.dropna(subset=['My Rating'])
         .sort_values(by='My Rating', ascending=False)
@@ -243,7 +228,6 @@ def display_top_rated_books(df, top_n):
     st.table(top_rated.set_index(pd.Index(range(1, len(top_rated) + 1))))
 
 def display_longest_shortest_books(df):
-    """Display the longest and shortest books."""
     if 'Number of Pages' not in df.columns or df['Number of Pages'].isna().all():
         st.info("No data available for 'Number of Pages'.")
         return
@@ -267,7 +251,6 @@ def display_longest_shortest_books(df):
 
 @st.cache_data
 def calculate_reading_streak(df):
-    """Calculate the longest reading streak (consecutive days with books read)."""
     if 'Date Read' not in df.columns or df['Date Read'].isna().all():
         return 0, None, None
     
@@ -300,7 +283,6 @@ def calculate_reading_streak(df):
 
 @st.cache_data
 def generate_cumulative_pages_chart(df):
-    """Generate a line chart for cumulative pages read over time."""
     if 'Date Read' not in df.columns or 'Number of Pages' not in df.columns:
         return None
     pages_df = df.dropna(subset=['Date Read', 'Number of Pages']).copy()
@@ -320,7 +302,6 @@ def generate_cumulative_pages_chart(df):
 
 @st.cache_data
 def calculate_average_pages_per_month(df):
-    """Calculate the average number of pages read per month."""
     if 'Date Read' not in df.columns or 'Number of Pages' not in df.columns:
         return 0
     pages_df = df.dropna(subset=['Date Read', 'Number of Pages']).copy()
@@ -332,7 +313,6 @@ def calculate_average_pages_per_month(df):
 
 @st.cache_data
 def calculate_total_pages_read(df):
-    """Calculate the total number of pages read."""
     if 'Date Read' not in df.columns or 'Number of Pages' not in df.columns:
         return 0
     pages_df = df.dropna(subset=['Date Read', 'Number of Pages']).copy()
@@ -342,14 +322,12 @@ def calculate_total_pages_read(df):
 
 @st.cache_data
 def calculate_most_books_in_one_day(df):
-    """Calculate the most books finished in one day."""
     if 'Date Read' not in df.columns:
         return 0
     date_counts = df['Date Read'].dropna().value_counts()
     return date_counts.max() if not date_counts.empty else 0
 
 def display_top_books_by_goodreads_rating(df, top_n):
-    """Display the top-rated books by Goodreads averages."""
     top_rated_goodreads = (
         df.dropna(subset=['Average Rating'])
         .sort_values(by='Average Rating', ascending=False)
