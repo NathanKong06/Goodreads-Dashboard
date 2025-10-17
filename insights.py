@@ -12,9 +12,10 @@ def handle_missing_pages(df):
     """Handle missing or zero values in the 'Number of Pages' column."""
     if 'Number of Pages' in df.columns:
         df['Number of Pages'] = pd.to_numeric(df['Number of Pages'], errors='coerce')
-        df['Number of Pages'] = df['Number of Pages'].replace(0, pd.NA)
+        df.loc[df['Number of Pages'] == 0, 'Number of Pages'] = pd.NA
         df['Number of Pages'] = df['Number of Pages'].fillna("Unknown")
 
+@st.cache_data
 def preprocess_data(uploaded_file):
     """Preprocess the uploaded Goodreads CSV file."""
     df = pd.read_csv(uploaded_file)
@@ -37,6 +38,7 @@ def preprocess_data(uploaded_file):
     handle_missing_pages(df)
     return df
 
+@st.cache_data
 def calculate_metrics(df):
     """Calculate key metrics from the data."""
     if 'Exclusive Shelf' in df.columns:
@@ -52,6 +54,7 @@ def calculate_metrics(df):
     }
     return read_df, metrics
 
+@st.cache_data
 def generate_books_per_year_chart(df):
     """Generate a bar chart for books read per year."""
     timeline = df.dropna(subset=['Date Read']).copy()
@@ -76,6 +79,7 @@ def generate_books_per_year_chart(df):
     fig.update_layout(margin=dict(t=80, b=40, l=40, r=40)) 
     return fig
 
+@st.cache_data
 def generate_top_authors_chart(df, top_n):
     """Generate a bar chart for top authors."""
     if 'Author' not in df.columns or df['Author'].dropna().empty:
@@ -101,6 +105,7 @@ def generate_top_authors_chart(df, top_n):
     )
     return fig, top_authors
 
+@st.cache_data
 def generate_top_publishers_chart(df, top_n):
     """Generate a bar chart for top publishers."""
     if 'Publisher' not in df.columns or df['Publisher'].dropna().empty:
@@ -122,6 +127,7 @@ def generate_top_publishers_chart(df, top_n):
     )
     return fig
 
+@st.cache_data
 def generate_binding_distribution_chart(df):
     """Generate a pie chart for binding distribution."""
     if 'Binding' not in df.columns or df['Binding'].dropna().empty:
@@ -137,6 +143,7 @@ def generate_binding_distribution_chart(df):
     )
     return fig
 
+@st.cache_data
 def generate_books_by_year_published_chart(df):
     """Generate a bar chart for books read by year published."""
     if 'Year Published' not in df.columns or df['Year Published'].dropna().empty:
@@ -205,20 +212,40 @@ def display_longest_shortest_books(df):
         st.write("**Shortest Books**")
         st.table(shortest.set_index(pd.Index(range(1, len(shortest) + 1))))
 
+@st.cache_data
 def calculate_reading_streak(df):
     """Calculate the longest reading streak (consecutive days with books read)."""
     if 'Date Read' not in df.columns or df['Date Read'].isna().all():
-        return 0
-    dates = pd.to_datetime(df['Date Read'].dropna()).sort_values().unique()
+        return 0, None, None
+    
+    dates = pd.to_datetime(df['Date Read'].dropna()).dt.date.sort_values().unique()
+    
+    if len(dates) == 0:
+        return 0, None, None
+    elif len(dates) == 1:
+        return 1, dates[0], dates[0]
+    
     streak, max_streak = 1, 1
+    streak_start, streak_end = dates[0], dates[0]
+    max_streak_start, max_streak_end = dates[0], dates[0]
+    
     for i in range(1, len(dates)):
-        if dates[i] - dates[i - 1] == timedelta(days=1):
+        days_diff = (dates[i] - dates[i - 1]).days
+        if days_diff == 1:
             streak += 1
-            max_streak = max(max_streak, streak)
+            streak_end = dates[i]
+            if streak > max_streak:
+                max_streak = streak
+                max_streak_start = streak_start
+                max_streak_end = streak_end
         else:
             streak = 1
-    return max_streak
+            streak_start = dates[i]
+            streak_end = dates[i]
+    
+    return max_streak, max_streak_start, max_streak_end
 
+@st.cache_data
 def generate_cumulative_pages_chart(df):
     """Generate a line chart for cumulative pages read over time."""
     if 'Date Read' not in df.columns or 'Number of Pages' not in df.columns:
@@ -238,6 +265,7 @@ def generate_cumulative_pages_chart(df):
     )
     return fig
 
+@st.cache_data
 def calculate_average_pages_per_month(df):
     """Calculate the average number of pages read per month."""
     if 'Date Read' not in df.columns or 'Number of Pages' not in df.columns:
@@ -249,6 +277,7 @@ def calculate_average_pages_per_month(df):
     pages_per_month = pages_df.groupby('YearMonth')['Number of Pages'].sum()
     return pages_per_month.mean()
 
+@st.cache_data
 def calculate_total_pages_read(df):
     """Calculate the total number of pages read."""
     if 'Date Read' not in df.columns or 'Number of Pages' not in df.columns:
@@ -258,6 +287,7 @@ def calculate_total_pages_read(df):
     pages_df['Number of Pages'] = pd.to_numeric(pages_df['Number of Pages'], errors='coerce')
     return pages_df['Number of Pages'].sum()
 
+@st.cache_data
 def calculate_most_books_in_one_day(df):
     """Calculate the most books finished in one day."""
     if 'Date Read' not in df.columns:
@@ -293,12 +323,22 @@ def main():
         st.subheader("Reading Pace and Pages Insights")
         avg_pages_per_month = calculate_average_pages_per_month(read_df)
         total_pages_read = calculate_total_pages_read(read_df)
-        longest_streak = calculate_reading_streak(read_df)
+        longest_streak, streak_start, streak_end = calculate_reading_streak(read_df)
         most_books_in_one_day = calculate_most_books_in_one_day(read_df)
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Average Pages per Month", f"{avg_pages_per_month:.2f}" if avg_pages_per_month > 0 else "N/A")
         c2.metric("Total Pages Read", f"{int(total_pages_read):,}" if total_pages_read > 0 else "N/A")
-        c3.metric("Longest Reading Streak", f"{longest_streak} days" if longest_streak > 0 else "N/A")
+        
+        if longest_streak > 0 and streak_start and streak_end:
+            streak_display = f"{longest_streak} days"
+            if streak_start == streak_end:
+                streak_display += f"\n({streak_start.strftime('%Y-%m-%d')})"
+            else:
+                streak_display += f"\n({streak_start.strftime('%Y-%m-%d')} to {streak_end.strftime('%Y-%m-%d')})"
+        else:
+            streak_display = "N/A"
+        
+        c3.metric("Longest Reading Streak", streak_display)
         c4.metric("Most Books Completed in One Day", f"{most_books_in_one_day}" if most_books_in_one_day > 0 else "N/A")
 
         cumulative_pages_chart = generate_cumulative_pages_chart(read_df)
@@ -325,7 +365,7 @@ def main():
             format_column(author_books, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
             format_column(author_books, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
             st.write(f"### Books by **{selected_author}** ({len(author_books)} total)")
-            st.dataframe(author_books.set_index(pd.Index(range(1, len(author_books) + 1))))
+            st.table(author_books.set_index(pd.Index(range(1, len(author_books) + 1))))
         else:
             st.info("No author data found.")
 
