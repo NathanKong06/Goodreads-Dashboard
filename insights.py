@@ -15,7 +15,6 @@ def handle_missing_pages(df):
         df['Number of Pages'] = df['Number of Pages'].replace(0, pd.NA)
         df['Number of Pages'] = df['Number of Pages'].fillna("Unknown")
 
-@st.cache_data
 def preprocess_data(uploaded_file):
     """Preprocess the uploaded Goodreads CSV file."""
     df = pd.read_csv(uploaded_file)
@@ -38,7 +37,6 @@ def preprocess_data(uploaded_file):
     handle_missing_pages(df)
     return df
 
-@st.cache_data
 def calculate_metrics(df):
     """Calculate key metrics from the data."""
     if 'Exclusive Shelf' in df.columns:
@@ -54,7 +52,6 @@ def calculate_metrics(df):
     }
     return read_df, metrics
 
-@st.cache_data
 def generate_books_per_year_chart(df):
     """Generate a bar chart for books read per year."""
     timeline = df.dropna(subset=['Date Read']).copy()
@@ -79,7 +76,6 @@ def generate_books_per_year_chart(df):
     fig.update_layout(margin=dict(t=80, b=40, l=40, r=40)) 
     return fig
 
-@st.cache_data
 def generate_top_authors_chart(df, top_n):
     """Generate a bar chart for top authors."""
     if 'Author' not in df.columns or df['Author'].dropna().empty:
