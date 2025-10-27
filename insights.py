@@ -320,11 +320,24 @@ def calculate_total_pages_read(df):
     return pages_df['Number of Pages'].sum()
 
 @st.cache_data
-def calculate_most_books_in_one_day(df):
-    if 'Date Read' not in df.columns:
+def calculate_average_pages_per_book(df):
+    if 'Number of Pages' not in df.columns:
         return 0
-    date_counts = df['Date Read'].dropna().value_counts()
-    return date_counts.max() if not date_counts.empty else 0
+    
+    pages_df = df.dropna(subset=['Number of Pages']).copy()
+    pages_df['Number of Pages'] = pd.to_numeric(pages_df['Number of Pages'], errors='coerce')
+    pages_df = pages_df.dropna(subset=['Number of Pages'])
+    
+    if pages_df.empty:
+        return 0
+    
+    total_pages = pages_df['Number of Pages'].sum()
+    total_books = len(df)  
+    
+    if total_books == 0:
+        return 0
+    
+    return total_pages / total_books
 
 def display_top_books_by_goodreads_rating(df, top_n):
     top_rated_goodreads = (
@@ -354,7 +367,7 @@ def main():
         avg_pages_per_month = calculate_average_pages_per_month(read_df)
         total_pages_read = calculate_total_pages_read(read_df)
         longest_streak, streak_start, streak_end = calculate_reading_streak(read_df)
-        most_books_in_one_day = calculate_most_books_in_one_day(read_df)
+        avg_pages_per_book = calculate_average_pages_per_book(read_df)
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Average Pages per Month", f"{avg_pages_per_month:.2f}" if avg_pages_per_month > 0 else "N/A")
         c2.metric("Total Pages Read", f"{int(total_pages_read):,}" if total_pages_read > 0 else "N/A")
@@ -370,7 +383,7 @@ def main():
                 st.markdown(f"<div style='font-size: 2rem; font-weight: normal; margin: 0; line-height: 0.5;'>{longest_streak} days{date_display}</div>", unsafe_allow_html=True)
         else:
             c3.metric("Longest Reading Streak", "N/A")
-        c4.metric("Most Books Completed in One Day", f"{most_books_in_one_day}" if most_books_in_one_day > 0 else "N/A")
+        c4.metric("Average Pages per Book", f"{avg_pages_per_book:.2f}" if avg_pages_per_book > 0 else "N/A")
 
         cumulative_pages_chart = generate_cumulative_pages_chart(read_df)
         if cumulative_pages_chart:
