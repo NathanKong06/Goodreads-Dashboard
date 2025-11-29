@@ -30,9 +30,9 @@ def get_all_authors(df):
     return all_authors
 
 def get_books_by_author(df, author_name):
-    primary_matches = df['Author'] == author_name if 'Author' in df.columns else pd.Series([False] * len(df))
+    primary_matches = df['Author'] == author_name if 'Author' in df.columns else pd.Series(False, index=df.index)
     
-    additional_matches = pd.Series([False] * len(df))
+    additional_matches = pd.Series(False, index=df.index)
     if 'Additional Authors' in df.columns:
         additional_authors_clean = df['Additional Authors'].fillna('').astype(str)
         additional_matches = additional_authors_clean.str.contains(author_name, case=False, na=False)
@@ -78,7 +78,7 @@ def preprocess_data(uploaded_file):
 @st.cache_data
 def calculate_metrics(df):
     if 'Exclusive Shelf' in df.columns:
-        read_df = df[df['Exclusive Shelf'].str.lower() == 'read']
+        read_df = df[df['Exclusive Shelf'].str.lower() == 'read'].copy()
     else:
         read_df = df.dropna(subset=['Date Read']).copy()
 
@@ -387,18 +387,18 @@ def main():
 
         cumulative_pages_chart = generate_cumulative_pages_chart(read_df)
         if cumulative_pages_chart:
-            st.plotly_chart(cumulative_pages_chart, use_container_width=True)
+            st.plotly_chart(cumulative_pages_chart, width='stretch')
 
         st.subheader("Reading Trends")
         fig1 = generate_books_per_year_chart(read_df)
         if fig1:
-            st.plotly_chart(fig1, use_container_width=True)
+            st.plotly_chart(fig1, width='stretch')
 
         st.subheader("Top Authors")
         top_n_authors = st.slider("Select the number of top authors to display:", min_value=5, max_value=20, value=10, key="top_authors_slider")
         fig2, top_authors = generate_top_authors_chart(read_df, top_n_authors)
         if fig2:
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, width='stretch')
             selected_author = st.selectbox("Select an author to view their books:", top_authors['Author'], key="author_selectbox")
             author_books = get_books_by_author(read_df, selected_author)
             author_books = author_books[['Title', 'Author', 'My Rating', 'Average Rating', 'Date Read']].sort_values(by='Date Read', ascending=False).reset_index(drop=True)
@@ -413,17 +413,17 @@ def main():
         top_n_publishers = st.slider("Select the number of top publishers to display:", min_value=3, max_value=10, value=5, key="top_publishers_slider")
         top_publishers_chart = generate_top_publishers_chart(read_df, top_n_publishers)
         if top_publishers_chart:
-            st.plotly_chart(top_publishers_chart, use_container_width=True)
+            st.plotly_chart(top_publishers_chart, width='stretch')
 
         st.subheader("Binding Distribution")
         binding_distribution_chart = generate_binding_distribution_chart(read_df)
         if binding_distribution_chart:
-            st.plotly_chart(binding_distribution_chart, use_container_width=True)
+            st.plotly_chart(binding_distribution_chart, width='stretch')
 
         st.subheader("Books Read by Year Published")
         books_by_year_published_chart = generate_books_by_year_published_chart(read_df)
         if books_by_year_published_chart:
-            st.plotly_chart(books_by_year_published_chart, use_container_width=True)
+            st.plotly_chart(books_by_year_published_chart, width='stretch')
 
         st.subheader("Your Top Rated Books")
         top_n_books = st.slider("Select the number of top-rated books to display:", min_value=5, max_value=20, value=10, key="top_rated_books_slider")
