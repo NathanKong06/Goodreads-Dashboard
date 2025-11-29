@@ -17,18 +17,20 @@ This project is a Streamlit-based dashboard that provides insights into your Goo
 1. Clone the repository
 
 2. Install the required dependencies:
+
    ```bash
    pip install -r requirements.txt
    ```
 
 3. Run the Streamlit app:
+
    ```bash
    streamlit run insights.py
    ```
 
 ## Usage
 
-1. Export your Goodreads data as a CSV file from the Goodreads website. (https://help.goodreads.com/s/article/How-do-I-import-or-export-my-books-1553870934590)
+1. Export your Goodreads data as a CSV file from the Goodreads website. (<https://help.goodreads.com/s/article/How-do-I-import-or-export-my-books-1553870934590>)
 2. Upload the CSV file using the file uploader in the dashboard.
 3. Explore the various insights and visualizations provided.
 
