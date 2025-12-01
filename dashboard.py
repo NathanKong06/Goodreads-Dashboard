@@ -21,7 +21,7 @@ def main():
         read_df, metrics = insights_functions.calculate_metrics(df)
         insights_functions.display_metrics(metrics)
 
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Reading Pace", "Trends & Authors", "Publishers & Binding", "Top Books", "Longest & Shortest Books", "Enrich Data", "Raw Data"])
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Reading Pace", "Trends & Authors", "Publishers & Binding", "Top Books", "Longest & Shortest Books", "Enrich Data with Genres", "Raw Data"])
         
         with tab1:
             st.subheader("Reading Pace and Pages Insights")
