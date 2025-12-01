@@ -2,7 +2,6 @@ import insights_functions
 import enrich
 import pandas as pd
 import streamlit as st
-import io
 import os
 
 def main():
