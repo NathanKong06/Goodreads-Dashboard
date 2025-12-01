@@ -358,27 +358,35 @@ def generate_top_genres_chart(df, top_n):
         return None
     
     all_genres = []
-    for genres_list in df['Genres'].dropna():
+    
+    def safe_to_list(val):
+        if isinstance(val, list):
+            return val
+        if pd.isna(val) or val is None or str(val).strip() == "" or str(val).strip() == "[]":
+            return []
+        
+        s = str(val).strip()
+        if s.startswith('[') and s.endswith(']'):
+            try:
+                parsed = ast.literal_eval(s)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+        
+        if isinstance(val, str):
+            return [g.strip() for g in s.split(' | ') if g.strip()]
+
+        return []
+
+    df_temp = df.copy()
+    df_temp['Genres'] = df_temp['Genres'].apply(safe_to_list)
+
+    for genres_list in df_temp['Genres'].dropna():
         if isinstance(genres_list, list):
             cleaned = [str(g).strip() for g in genres_list if str(g).strip()]
             all_genres.extend(cleaned)
-        elif isinstance(genres_list, str):
-            s = genres_list.strip()
-            parsed = None
-            try:
-                parsed = ast.literal_eval(s)
-            except Exception:
-                parsed = None
 
-            if isinstance(parsed, list):
-                cleaned = [str(g).strip() for g in parsed if str(g).strip()]
-                all_genres.extend(cleaned)
-            else:
-                s = s.strip("[]")
-                parts = [p.strip().strip("'\"") for p in s.split(',') if p.strip()]
-                parts = [p for p in parts if p]  
-                all_genres.extend(parts)
-    
     if not all_genres:
         return None
     

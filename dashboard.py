@@ -131,6 +131,11 @@ def main():
                 status_text.text("Enrichment complete!")
                 
                 if enriched_df is not None:
+                    if 'Genres' in enriched_df.columns:
+                        enriched_df['Genres'] = enriched_df['Genres'].apply(
+                            lambda x: ' | '.join(x) if isinstance(x, list) else x
+                        )
+                    
                     st.session_state.enriched_df = enriched_df
                     st.session_state.enrichment_complete = True
                     st.success("Your data has been enriched with genres!")
