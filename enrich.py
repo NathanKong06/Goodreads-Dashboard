@@ -83,9 +83,17 @@ def enrich_library(df: pd.DataFrame) -> Optional[pd.DataFrame]:
             except Exception as exc:
                 print(exc)
 
+    results_map = {}
     for book_id, genres in results:
-        mask = df['Book Id'] == book_id
-        if mask.any():
-            df.loc[mask, 'Genres'] = [genres] * mask.sum()
+        if isinstance(genres, (list, tuple)):
+            results_map[book_id] = list(genres)
+        elif pd.isna(genres):
+            results_map[book_id] = []
+        else:
+            results_map[book_id] = [genres]
+
+    if results_map:
+        mask = df['Book Id'].isin(results_map.keys())
+        df.loc[mask, 'Genres'] = df.loc[mask, 'Book Id'].map(results_map)
 
     return df
