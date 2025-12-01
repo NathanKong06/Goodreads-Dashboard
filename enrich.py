@@ -26,7 +26,7 @@ def scrape_book_data(book_id: str) -> Tuple[str, List[str]]:
 
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        # Extract Genres
+        #Extract Genres
         genre_elements = soup.select('.BookPageMetadataSection__genres .BookPageMetadataSection__genreButton')
         for element in genre_elements:
             genre_text = element.get_text().strip()
@@ -47,8 +47,27 @@ def enrich_library(df: pd.DataFrame) -> Optional[pd.DataFrame]:
     if 'Book Id' not in df.columns:
         return df
 
+    df = df.copy()
     df['Book Id'] = df['Book Id'].astype(str)
-    book_ids_list = df['Book Id'].unique().tolist()
+
+    if 'Genres' not in df.columns:
+        df['Genres'] = pd.NA
+        need_enrich_mask = pd.Series(True, index=df.index)
+    else:
+        def _is_empty_genres(val):
+            if pd.isna(val):
+                return True
+            if isinstance(val, list):
+                return len(val) == 0
+            if isinstance(val, str):
+                s = val.strip()
+                if s == "" or s == "[]":
+                    return True
+            return False
+
+        need_enrich_mask = df['Genres'].apply(_is_empty_genres)
+
+    book_ids_list = df.loc[need_enrich_mask, 'Book Id'].unique().tolist()
     book_ids_list = [id_str for id_str in book_ids_list if id_str.isdigit()]
 
     if not book_ids_list:
@@ -64,6 +83,9 @@ def enrich_library(df: pd.DataFrame) -> Optional[pd.DataFrame]:
             except Exception as exc:
                 print(exc)
 
-    results_df = pd.DataFrame(results, columns=['Book Id', 'Genres'])
-    df_enriched = df.merge(results_df, on='Book Id', how='left')
-    return df_enriched
+    for book_id, genres in results:
+        mask = df['Book Id'] == book_id
+        if mask.any():
+            df.loc[mask, 'Genres'] = [genres] * mask.sum()
+
+    return df

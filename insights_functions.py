@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+import ast 
 
 def format_column(df, column_name, format_func):
     if column_name in df.columns:
@@ -359,13 +360,29 @@ def generate_top_genres_chart(df, top_n):
     all_genres = []
     for genres_list in df['Genres'].dropna():
         if isinstance(genres_list, list):
-            all_genres.extend(genres_list)
+            cleaned = [str(g).strip() for g in genres_list if str(g).strip()]
+            all_genres.extend(cleaned)
         elif isinstance(genres_list, str):
-            genres = [genre.strip() for genre in genres_list.split(',')]
-            all_genres.extend(genres)
+            s = genres_list.strip()
+            parsed = None
+            try:
+                parsed = ast.literal_eval(s)
+            except Exception:
+                parsed = None
+
+            if isinstance(parsed, list):
+                cleaned = [str(g).strip() for g in parsed if str(g).strip()]
+                all_genres.extend(cleaned)
+            else:
+                s = s.strip("[]")
+                parts = [p.strip().strip("'\"") for p in s.split(',') if p.strip()]
+                parts = [p for p in parts if p]  
+                all_genres.extend(parts)
     
     if not all_genres:
         return None
+    
+    all_genres = [' '.join(g.split()) for g in all_genres]
     
     genre_counts = pd.Series(all_genres).value_counts().reset_index()
     genre_counts.columns = ['Genre', 'Count']

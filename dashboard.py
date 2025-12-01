@@ -2,11 +2,18 @@ import insights_functions
 import enrich
 import pandas as pd
 import streamlit as st
+import io
+import os
 
 def main():
     st.set_page_config(page_title="Goodreads Dashboard", layout="wide")
     st.title("Goodreads Reading Insights Dashboard")
     uploaded_file = st.file_uploader("Upload your Goodreads export CSV", type=["csv"])
+
+    if uploaded_file is not None:
+        if 'uploaded_file_name' not in st.session_state:
+            st.session_state.uploaded_file_name = getattr(uploaded_file, "name", "goodreads_export.csv")
+    
     if uploaded_file is not None:
         df = insights_functions.preprocess_data(uploaded_file)
         if df is None:
@@ -113,18 +120,49 @@ def main():
                 else:
                     st.error("An error occurred while enriching the data.")
             
-            if 'enriched_df' in st.session_state:
-                enriched_df = st.session_state.enriched_df
+            has_genres_in_read = ('Genres' in read_df.columns) and (not read_df['Genres'].isna().all())
+            enriched_present = 'enriched_df' in st.session_state
+
+            if has_genres_in_read or enriched_present:
+                df_for_genres = st.session_state.enriched_df if enriched_present else read_df
+
                 st.subheader("Genre Insights")
                 st.write("Explore genre distribution across your library.")
+
+                try:
+                    csv_bytes = df_for_genres.to_csv(index=False).encode('utf-8')
+                    if enriched_present:
+                        download_name = f"enriched_{st.session_state.get('uploaded_file_name', 'goodreads_export.csv')}"
+                    else:
+                        download_name = f"with_genres_{st.session_state.get('uploaded_file_name', 'goodreads_export.csv')}"
+                    st.download_button("Download Enriched CSV", data=csv_bytes, file_name=download_name, mime="text/csv")
+                except Exception as e:
+                    st.error(f"Unable to prepare download: {e}")
+
+                st.write("If you are running Streamlit locally and want to save the CSV directly to a path on this machine, specify the path below.")
+                save_locally = st.checkbox("Save CSV to local path", key="save_local_checkbox")
+                if save_locally:
+                    default_name = st.session_state.get('uploaded_file_name', 'goodreads_export.csv')
+                    default_path = os.path.join(os.getcwd(), default_name)
+                    save_path = st.text_input("Full path to save CSV (will overwrite if exists):", value=default_path, key="save_path_input")
+                    if st.button("Save CSV to Path", key="save_path_button"):
+                        try:
+                            df_for_genres.to_csv(save_path, index=False)
+                            st.success(f"CSV saved to: {save_path}")
+                        except Exception as e:
+                            st.error(f"Failed to save CSV to {save_path}: {e}")
                 
-                if 'Genres' in enriched_df.columns:
+                if 'Genres' in df_for_genres.columns:
                     top_n_genres = st.slider("Select the number of top genres to display:", min_value=5, max_value=20, value=10, key="top_genres_slider", label_visibility="collapsed")
-                    genre_chart = insights_functions.generate_top_genres_chart(enriched_df, top_n_genres)
+                    genre_chart = insights_functions.generate_top_genres_chart(df_for_genres, top_n_genres)
                     if genre_chart:
                         st.plotly_chart(genre_chart, width='stretch')
+                    else:
+                        st.info("No genre data available to plot.")
                 else:
                     st.info("No genre data available yet.")
+            else:
+                st.info("No genre data available. Click 'Enrich Library with Genres' to fetch genres from Goodreads.")
 
         with tab7:
             if 'enriched_df' in st.session_state:
