@@ -5,7 +5,6 @@ from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Tuple, List, Optional
 
-CSV_FILE_PATH = 'goodreads_library_export.csv' 
 MAX_WORKERS = 8  
 DELAY_SECONDS = 2
 BASE_URL = "https://www.goodreads.com/book/show/"
@@ -41,37 +40,30 @@ def scrape_book_data(book_id: str) -> Tuple[str, List[str]]:
         print(f"An unexpected error occurred for book ID {book_id}: {e}. Skipping.")
         return book_id, []
 
-def enrich_library(csv_path: str = CSV_FILE_PATH, output_filename: str = 'goodreads_library_export_enriched.csv') -> Optional[pd.DataFrame]:
-	try:
-		df = pd.read_csv(csv_path)
-	except FileNotFoundError:
-		return None
+def enrich_library(df: pd.DataFrame) -> Optional[pd.DataFrame]:
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("enrich_library expects a pandas DataFrame as input")
 
-	df['Book Id'] = df['Book Id'].astype(str)
-	book_ids_list = df['Book Id'].unique().tolist()
-	book_ids_list = [id_str for id_str in book_ids_list if id_str.isdigit()]
+    if 'Book Id' not in df.columns:
+        return df
 
-	if not book_ids_list:
-		df.to_csv(output_filename, index=False)
-		return df
+    df['Book Id'] = df['Book Id'].astype(str)
+    book_ids_list = df['Book Id'].unique().tolist()
+    book_ids_list = [id_str for id_str in book_ids_list if id_str.isdigit()]
 
-	results = []
-	with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-		future_to_id = {executor.submit(scrape_book_data, book_id): book_id for book_id in book_ids_list}
-		for future in as_completed(future_to_id):
-			try:
-				result = future.result()
-				results.append(result)
-			except Exception as exc:
-				print(exc)
+    if not book_ids_list:
+        return df
 
-	results_df = pd.DataFrame(results, columns=['Book Id', 'Genres'])
-	df_enriched = df.merge(results_df, on='Book Id', how='left')
-	df_enriched.to_csv(output_filename, index=False)
-	return df_enriched
+    results = []
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        future_to_id = {executor.submit(scrape_book_data, book_id): book_id for book_id in book_ids_list}
+        for future in as_completed(future_to_id):
+            try:
+                result = future.result()
+                results.append(result)
+            except Exception as exc:
+                print(exc)
 
-def main():
-	enrich_library()
-	
-if __name__ == "__main__":
-	main()
+    results_df = pd.DataFrame(results, columns=['Book Id', 'Genres'])
+    df_enriched = df.merge(results_df, on='Book Id', how='left')
+    return df_enriched
