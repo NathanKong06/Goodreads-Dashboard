@@ -25,7 +25,7 @@ This project is a Streamlit-based dashboard that provides insights into your Goo
 3. Run the Streamlit app:
 
    ```bash
-   streamlit run insights.py
+   streamlit run dashboard.py
    ```
 
 ## Usage
