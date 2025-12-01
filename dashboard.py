@@ -14,7 +14,7 @@ def main():
         read_df, metrics = insights_functions.calculate_metrics(df)
         insights_functions.display_metrics(metrics)
 
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Reading Pace", "Trends & Authors", "Publishers & Binding", "Top Books", "Longest & Shortest Books", "Raw Data"])
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Reading Pace", "Trends & Authors", "Publishers & Binding", "Top Books", "Longest & Shortest Books", "Enrich Data", "Raw Data"])
         
         with tab1:
             st.subheader("Reading Pace and Pages Insights")
@@ -94,7 +94,44 @@ def main():
             insights_functions.display_longest_shortest_books(read_df)
 
         with tab6:
-            display_df = read_df.copy()
+            st.subheader("Enrich Your Data with Genres")
+            st.write("Would you like to enrich your reading data with genre information from Goodreads? This will fetch genre data for each book in your library.")
+            
+            if st.button("Enrich Library with Genres", key="enrich_button"):
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                status_text.text("Fetching genre data from Goodreads... This may take a few minutes.")
+                enriched_df = enrich.enrich_library(read_df)
+                progress_bar.progress(100)
+                status_text.text("Enrichment complete!")
+                
+                if enriched_df is not None:
+                    st.session_state.enriched_df = enriched_df
+                    st.session_state.enrichment_complete = True
+                    st.success("Your data has been enriched with genres!")
+                else:
+                    st.error("An error occurred while enriching the data.")
+            
+            if 'enriched_df' in st.session_state:
+                enriched_df = st.session_state.enriched_df
+                st.subheader("Genre Insights")
+                st.write("Explore genre distribution across your library.")
+                
+                if 'Genres' in enriched_df.columns:
+                    top_n_genres = st.slider("Select the number of top genres to display:", min_value=5, max_value=20, value=10, key="top_genres_slider", label_visibility="collapsed")
+                    genre_chart = insights_functions.generate_top_genres_chart(enriched_df, top_n_genres)
+                    if genre_chart:
+                        st.plotly_chart(genre_chart, width='stretch')
+                else:
+                    st.info("No genre data available yet.")
+
+        with tab7:
+            if 'enriched_df' in st.session_state:
+                display_df = st.session_state.enriched_df.copy()
+            else:
+                display_df = read_df.copy()
+            
             insights_functions.format_column(display_df, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
             insights_functions.format_column(display_df, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
             st.dataframe(display_df.set_index(pd.Index(range(1, len(display_df) + 1))))

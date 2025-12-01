@@ -350,3 +350,42 @@ def display_top_books_by_goodreads_rating(df, top_n):
     format_column(top_rated_goodreads, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
     st.subheader(f"Top {top_n} Books by Goodreads Average Rating")
     st.table(top_rated_goodreads.set_index(pd.Index(range(1, len(top_rated_goodreads) + 1))))
+
+@st.cache_data
+def generate_top_genres_chart(df, top_n):
+    if 'Genres' not in df.columns or df['Genres'].isna().all():
+        return None
+    
+    all_genres = []
+    for genres_list in df['Genres'].dropna():
+        if isinstance(genres_list, list):
+            all_genres.extend(genres_list)
+        elif isinstance(genres_list, str):
+            genres = [genre.strip() for genre in genres_list.split(',')]
+            all_genres.extend(genres)
+    
+    if not all_genres:
+        return None
+    
+    genre_counts = pd.Series(all_genres).value_counts().reset_index()
+    genre_counts.columns = ['Genre', 'Count']
+    top_genres = genre_counts.head(top_n)
+    
+    max_count = top_genres['Count'].max() if not top_genres.empty else 0
+    y_max = max(max_count * 1.15, max_count + 1)
+    
+    fig = px.bar(
+        top_genres,
+        x='Genre',
+        y='Count',
+        title=f"Top {top_n} Genres",
+        text='Count',
+        height=520
+    )
+    fig.update_traces(textposition='outside', textfont=dict(size=12), cliponaxis=False)
+    fig.update_layout(
+        margin=dict(t=110, b=120, l=40, r=40),
+        yaxis=dict(title='Count', range=[0, y_max], automargin=True),
+        xaxis=dict(title='Genre', automargin=True)
+    )
+    return fig
