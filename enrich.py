@@ -3,7 +3,7 @@ import time
 from requests import Session, HTTPError
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 CSV_FILE_PATH = 'goodreads_library_export.csv' 
 MAX_WORKERS = 8  
@@ -41,36 +41,37 @@ def scrape_book_data(book_id: str) -> Tuple[str, List[str]]:
         print(f"An unexpected error occurred for book ID {book_id}: {e}. Skipping.")
         return book_id, []
 
+def enrich_library(csv_path: str = CSV_FILE_PATH, output_filename: str = 'goodreads_library_export_enriched.csv') -> Optional[pd.DataFrame]:
+	try:
+		df = pd.read_csv(csv_path)
+	except FileNotFoundError:
+		return None
+
+	df['Book Id'] = df['Book Id'].astype(str)
+	book_ids_list = df['Book Id'].unique().tolist()
+	book_ids_list = [id_str for id_str in book_ids_list if id_str.isdigit()]
+
+	if not book_ids_list:
+		df.to_csv(output_filename, index=False)
+		return df
+
+	results = []
+	with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+		future_to_id = {executor.submit(scrape_book_data, book_id): book_id for book_id in book_ids_list}
+		for future in as_completed(future_to_id):
+			try:
+				result = future.result()
+				results.append(result)
+			except Exception as exc:
+				print(exc)
+
+	results_df = pd.DataFrame(results, columns=['Book Id', 'Genres'])
+	df_enriched = df.merge(results_df, on='Book Id', how='left')
+	df_enriched.to_csv(output_filename, index=False)
+	return df_enriched
+
 def main():
-    try:
-        df = pd.read_csv(CSV_FILE_PATH)
-    except FileNotFoundError:
-        return
-
-    df['Book Id'] = df['Book Id'].astype(str)
-    book_ids_list = df['Book Id'].unique().tolist()    
-    book_ids_list = [id_str for id_str in book_ids_list if id_str.isdigit()]
-
-    if not book_ids_list:
-        return
-        
-    results = []
-    
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        future_to_id = {executor.submit(scrape_book_data, book_id): book_id for book_id in book_ids_list}
-        for i, future in enumerate(as_completed(future_to_id)):
-            try:
-                result = future.result() 
-                results.append(result)
-            except Exception as exc:
-                print(exc)
-    
-    results_df = pd.DataFrame(results, columns=['Book Id', 'Genres'])
-
-    df_enriched = df.merge(results_df, on='Book Id', how='left')
-
-    output_filename = 'goodreads_library_export_enriched.csv'
-    df_enriched.to_csv(output_filename, index=False)
-        
+	enrich_library()
+	
 if __name__ == "__main__":
-    main()
+	main()
