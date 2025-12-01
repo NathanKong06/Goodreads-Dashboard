@@ -20,9 +20,17 @@ def main():
         read_df, metrics = insights_functions.calculate_metrics(df)
         insights_functions.display_metrics(metrics)
 
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Reading Pace", "Trends & Authors", "Publishers & Binding", "Top Books", "Longest & Shortest Books", "Enrich Data with Genres", "Raw Data"])
+        tab_titles = ["Reading Pace", "Trends & Authors", "Publishers & Binding", "Top Books", "Longest & Shortest Books", "Enrich Data with Genres", "Raw Data"]
         
-        with tab1:
+        selected_tab = st.radio(
+            "Select a section:",
+            tab_titles,
+            key='active_tab', 
+            horizontal=True
+        )
+        st.markdown("---") 
+        
+        if selected_tab == "Reading Pace":
             st.subheader("Reading Pace and Pages Insights")
             avg_pages_per_month = insights_functions.calculate_average_pages_per_month(read_df)
             total_pages_read = insights_functions.calculate_total_pages_read(read_df)
@@ -49,7 +57,7 @@ def main():
             if cumulative_pages_chart:
                 st.plotly_chart(cumulative_pages_chart, width='stretch')
 
-        with tab2:
+        elif selected_tab == "Trends & Authors":
             st.subheader("Reading Trends")
             fig1 = insights_functions.generate_books_per_year_chart(read_df)
             if fig1:
@@ -70,7 +78,7 @@ def main():
             else:
                 st.info("No author data found.")
 
-        with tab3:
+        elif selected_tab == "Publishers & Binding":
             st.subheader("Publisher Insights")
             top_n_publishers = st.slider("Select the number of top publishers to display:", min_value=3, max_value=10, value=5, key="top_publishers_slider")
             top_publishers_chart = insights_functions.generate_top_publishers_chart(read_df, top_n_publishers)
@@ -87,7 +95,7 @@ def main():
             if books_by_year_published_chart:
                 st.plotly_chart(books_by_year_published_chart, width='stretch')
 
-        with tab4:
+        elif selected_tab == "Top Books":
             st.subheader("Your Top Rated Books")
             top_n_books = st.slider("Select the number of top-rated books to display:", min_value=5, max_value=20, value=10, key="top_rated_books_slider")
             insights_functions.display_top_rated_books(read_df, top_n_books)
@@ -96,10 +104,10 @@ def main():
             top_n_goodreads_books = st.slider("Select the number of top Goodreads-rated books to display:", min_value=5, max_value=20, value=10, key="goodreads_top_books_slider")
             insights_functions.display_top_books_by_goodreads_rating(read_df, top_n_goodreads_books)
 
-        with tab5:
+        elif selected_tab == "Longest & Shortest Books":
             insights_functions.display_longest_shortest_books(read_df)
 
-        with tab6:
+        elif selected_tab == "Enrich Data with Genres":
             st.subheader("Enrich Your Data with Genres")
             st.write("Would you like to enrich your reading data with genre information from Goodreads? This will fetch genre data for each book in your library.")
             
@@ -186,7 +194,7 @@ def main():
             else:
                 st.info("No genre data available. Click 'Enrich Library with Genres' to fetch genres from Goodreads.")
 
-        with tab7:
+        elif selected_tab == "Raw Data":
             if 'enriched_df' in st.session_state:
                 display_df = st.session_state.enriched_df.copy()
             else:
