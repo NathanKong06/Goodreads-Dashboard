@@ -1,7 +1,6 @@
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-from datetime import timedelta
 
 def format_column(df, column_name, format_func):
     if column_name in df.columns:
@@ -351,97 +350,3 @@ def display_top_books_by_goodreads_rating(df, top_n):
     format_column(top_rated_goodreads, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
     st.subheader(f"Top {top_n} Books by Goodreads Average Rating")
     st.table(top_rated_goodreads.set_index(pd.Index(range(1, len(top_rated_goodreads) + 1))))
-
-def main():
-    st.set_page_config(page_title="Goodreads Dashboard", layout="wide")
-    st.title("Goodreads Reading Insights Dashboard")
-    uploaded_file = st.file_uploader("Upload your Goodreads export CSV", type=["csv"])
-    if uploaded_file is not None:
-        df = preprocess_data(uploaded_file)
-        if df is None:
-            return  
-        read_df, metrics = calculate_metrics(df)
-        display_metrics(metrics)
-
-        st.subheader("Reading Pace and Pages Insights")
-        avg_pages_per_month = calculate_average_pages_per_month(read_df)
-        total_pages_read = calculate_total_pages_read(read_df)
-        longest_streak, streak_start, streak_end = calculate_reading_streak(read_df)
-        avg_pages_per_book = calculate_average_pages_per_book(read_df)
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Average Pages per Month", f"{avg_pages_per_month:.2f}" if avg_pages_per_month > 0 else "N/A")
-        c2.metric("Total Pages Read", f"{int(total_pages_read):,}" if total_pages_read > 0 else "N/A")
-        
-        if longest_streak > 0 and streak_start and streak_end:
-            if streak_start == streak_end:
-                date_display = f"<br><span style='font-size: 0.8em; color: #666; line-height: 2.5;'>({streak_start.strftime('%Y-%m-%d')})</span>"
-            else:
-                date_display = f"<br><span style='font-size: 0.8em; color: #666; line-height: 2.5;'>({streak_start.strftime('%Y-%m-%d')} to {streak_end.strftime('%Y-%m-%d')})</span>"
-            
-            with c3:
-                st.markdown("Longest Reading Streak")
-                st.markdown(f"<div style='font-size: 2rem; font-weight: normal; margin: 0; line-height: 0.5;'>{longest_streak} days{date_display}</div>", unsafe_allow_html=True)
-        else:
-            c3.metric("Longest Reading Streak", "N/A")
-        c4.metric("Average Pages per Book", f"{avg_pages_per_book:.2f}" if avg_pages_per_book > 0 else "N/A")
-
-        cumulative_pages_chart = generate_cumulative_pages_chart(read_df)
-        if cumulative_pages_chart:
-            st.plotly_chart(cumulative_pages_chart, width='stretch')
-
-        st.subheader("Reading Trends")
-        fig1 = generate_books_per_year_chart(read_df)
-        if fig1:
-            st.plotly_chart(fig1, width='stretch')
-
-        st.subheader("Top Authors")
-        top_n_authors = st.slider("Select the number of top authors to display:", min_value=5, max_value=20, value=10, key="top_authors_slider")
-        fig2, top_authors = generate_top_authors_chart(read_df, top_n_authors)
-        if fig2:
-            st.plotly_chart(fig2, width='stretch')
-            selected_author = st.selectbox("Select an author to view their books:", top_authors['Author'], key="author_selectbox")
-            author_books = get_books_by_author(read_df, selected_author)
-            author_books = author_books[['Title', 'Author', 'My Rating', 'Average Rating', 'Date Read']].sort_values(by='Date Read', ascending=False).reset_index(drop=True)
-            format_column(author_books, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
-            format_column(author_books, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
-            st.write(f"### Books by **{selected_author}** ({len(author_books)} total)")
-            st.table(author_books.set_index(pd.Index(range(1, len(author_books) + 1))))
-        else:
-            st.info("No author data found.")
-
-        st.subheader("Publisher Insights")
-        top_n_publishers = st.slider("Select the number of top publishers to display:", min_value=3, max_value=10, value=5, key="top_publishers_slider")
-        top_publishers_chart = generate_top_publishers_chart(read_df, top_n_publishers)
-        if top_publishers_chart:
-            st.plotly_chart(top_publishers_chart, width='stretch')
-
-        st.subheader("Binding Distribution")
-        binding_distribution_chart = generate_binding_distribution_chart(read_df)
-        if binding_distribution_chart:
-            st.plotly_chart(binding_distribution_chart, width='stretch')
-
-        st.subheader("Books Read by Year Published")
-        books_by_year_published_chart = generate_books_by_year_published_chart(read_df)
-        if books_by_year_published_chart:
-            st.plotly_chart(books_by_year_published_chart, width='stretch')
-
-        st.subheader("Your Top Rated Books")
-        top_n_books = st.slider("Select the number of top-rated books to display:", min_value=5, max_value=20, value=10, key="top_rated_books_slider")
-        display_top_rated_books(read_df, top_n_books)
-
-        st.subheader("Top Books by Goodreads Average Rating")
-        top_n_goodreads_books = st.slider("Select the number of top Goodreads-rated books to display:", min_value=5, max_value=20, value=10, key="goodreads_top_books_slider")
-        display_top_books_by_goodreads_rating(read_df, top_n_goodreads_books)
-
-        display_longest_shortest_books(read_df)
-
-        with st.expander("See Raw Data"):
-            display_df = read_df.copy()
-            format_column(display_df, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
-            format_column(display_df, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
-            st.dataframe(display_df.set_index(pd.Index(range(1, len(display_df) + 1))))
-    else:
-        st.info("Upload your Goodreads CSV file to see your reading insights.")
-
-if __name__ == "__main__":
-    main()
