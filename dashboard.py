@@ -107,9 +107,27 @@ def main():
             if st.button("Enrich Library with Genres", key="enrich_button"):
                 progress_bar = st.progress(0)
                 status_text = st.empty()
-                
-                status_text.text("Fetching genre data from Goodreads... This may take a few minutes.")
-                enriched_df = enrich.enrich_library(read_df)
+                status_text.text("Preparing to fetch genre data...")
+
+                def _progress_callback(done: int, total: int):
+                    try:
+                        if total and total > 0:
+                            pct = int((done / total) * 100)
+                        else:
+                            pct = 100 if done >= total else 0
+                    except Exception:
+                        pct = 0
+                    try:
+                        progress_bar.progress(min(max(pct, 0), 100))
+                        if total and total > 0:
+                            status_text.text(f"Fetching genre data... ({done}/{total})")
+                        else:
+                            status_text.text("No books to enrich.")
+                    except Exception:
+                        pass
+
+                enriched_df = enrich.enrich_library(read_df, progress_callback=_progress_callback)
+
                 progress_bar.progress(100)
                 status_text.text("Enrichment complete!")
                 

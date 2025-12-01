@@ -3,7 +3,7 @@ import time
 from requests import Session, HTTPError
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Callable
 
 MAX_WORKERS = 8  
 DELAY_SECONDS = 2
@@ -40,7 +40,7 @@ def scrape_book_data(book_id: str) -> Tuple[str, List[str]]:
         print(f"An unexpected error occurred for book ID {book_id}: {e}. Skipping.")
         return book_id, []
 
-def enrich_library(df: pd.DataFrame) -> Optional[pd.DataFrame]:
+def enrich_library(df: pd.DataFrame, progress_callback: Optional[Callable[[int, int], None]] = None) -> Optional[pd.DataFrame]:
     if not isinstance(df, pd.DataFrame):
         raise TypeError("enrich_library expects a pandas DataFrame as input")
 
@@ -71,17 +71,34 @@ def enrich_library(df: pd.DataFrame) -> Optional[pd.DataFrame]:
     book_ids_list = [id_str for id_str in book_ids_list if id_str.isdigit()]
 
     if not book_ids_list:
+        if progress_callback:
+            try:
+                progress_callback(0, 0)
+            except Exception:
+                pass
         return df
 
     results = []
+    total = len(book_ids_list)
+    completed = 0
+
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         future_to_id = {executor.submit(scrape_book_data, book_id): book_id for book_id in book_ids_list}
         for future in as_completed(future_to_id):
+            book_id = future_to_id.get(future)
             try:
                 result = future.result()
                 results.append(result)
             except Exception as exc:
                 print(exc)
+                results.append((book_id, []))
+            finally:
+                completed += 1
+                if progress_callback:
+                    try:
+                        progress_callback(completed, total)
+                    except Exception:
+                        pass
 
     results_map = {}
     for book_id, genres in results:
