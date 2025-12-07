@@ -95,6 +95,21 @@ def main():
             if books_by_year_published_chart:
                 st.plotly_chart(books_by_year_published_chart, width='stretch')
 
+            if 'Year Published' in read_df.columns:
+                available_years = sorted(read_df['Year Published'].dropna().unique())
+                selected_pub_year = st.selectbox("Select a publication year to view books from that year:", available_years, key="pub_year_selectbox")
+
+                books_in_year = read_df[read_df['Year Published'] == selected_pub_year].copy()
+                books_in_year = books_in_year[['Title', 'Author', 'My Rating', 'Average Rating', 'Date Read']].sort_values(by='Date Read', ascending=False).reset_index(drop=True)
+
+                insights_functions.format_column(books_in_year, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
+                insights_functions.format_column(books_in_year, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
+
+                st.write(f"### Books Published in {selected_pub_year} ({len(books_in_year)} total)")
+                st.table(books_in_year.set_index(pd.Index(range(1, len(books_in_year) + 1))))
+            else:
+                st.info("No publication year data found.")
+
         elif selected_tab == "Top Books":
             st.subheader("Your Top Rated Books")
             top_n_books = st.slider("Select the number of top-rated books to display:", min_value=5, max_value=20, value=10, key="top_rated_books_slider")
