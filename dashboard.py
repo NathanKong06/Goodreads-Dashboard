@@ -5,7 +5,7 @@ import streamlit as st
 import os
 
 def main():
-    st.set_page_config(page_title="Goodreads Dashboard", layout="wide")
+    st.set_page_config(page_title="Goodreads Dashboard",page_icon="📚",layout="wide")
     st.title("Goodreads Reading Insights Dashboard")
 
     st.markdown(
