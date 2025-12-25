@@ -7,6 +7,16 @@ import os
 def main():
     st.set_page_config(page_title="Goodreads Dashboard", layout="wide")
     st.title("Goodreads Reading Insights Dashboard")
+
+    st.markdown(
+        """
+    ### How to get your Goodreads CSV
+    1. Visit **Goodreads Import/Export**: https://www.goodreads.com/review/import and select "Export Library" to download your reading data.
+    - Follow the official instructions to export your library as a CSV if needed:  
+       https://help.goodreads.com/s/article/How-do-I-import-or-export-my-books-1553870934590
+    """
+    )
+
     uploaded_file = st.file_uploader("Upload your Goodreads export CSV", type=["csv"])
 
     if uploaded_file is not None:

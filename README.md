@@ -2,6 +2,8 @@
 
 A comprehensive Streamlit-based dashboard for visualizing and analyzing your Goodreads reading data. Upload your Goodreads export CSV and gain deep insights into your reading habits, trends, and statistics.
 
+<https://goodreads-dashboard.streamlit.app>
+
 ## Features Overview
 
 The dashboard is organized into several tabs, providing deep dives into different aspects of your reading data.
