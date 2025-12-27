@@ -127,14 +127,15 @@ def main():
             if pub_year_series_clean.dropna().empty:
                 st.info("No publication year data found.")
             else:
-                available_years = sorted(set(pub_year_series_clean.dropna().unique()))
+                available_years = sorted({int(y) for y in pub_year_series_clean.dropna().unique()})
                 selected_pub_year = st.selectbox(
                     "Select a publication year to view books from that year:",
                     available_years,
                     key="pub_year_selectbox"
                 )
 
-                mask = pub_year_series_clean == selected_pub_year
+                pub_year_series_int = pub_year_series_clean.apply(lambda x: int(x) if pd.notna(x) else pd.NA)
+                mask = pub_year_series_int == selected_pub_year
                 books_in_year = read_df[mask].copy()
                 books_in_year = books_in_year[['Title', 'Author', 'My Rating', 'Average Rating', 'Date Read']].sort_values(by='Date Read', ascending=False).reset_index(drop=True)
 
