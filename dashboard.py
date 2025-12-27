@@ -105,11 +105,37 @@ def main():
             if books_by_year_published_chart:
                 st.plotly_chart(books_by_year_published_chart, width='stretch')
 
-            if 'Year Published' in read_df.columns:
-                available_years = sorted(read_df['Year Published'].dropna().unique())
-                selected_pub_year = st.selectbox("Select a publication year to view books from that year:", available_years, key="pub_year_selectbox")
+            orig_col = 'Original Publication Year'
+            year_col = 'Year Published'
 
-                books_in_year = read_df[read_df['Year Published'] == selected_pub_year].copy()
+            has_orig = orig_col in read_df.columns
+            has_year = year_col in read_df.columns
+
+            pub_year_series = pd.Series([pd.NA] * len(read_df), index=read_df.index)
+
+            if has_orig:
+                orig_vals = pd.to_numeric(read_df[orig_col], errors='coerce')
+                orig_vals = orig_vals.where(orig_vals >= 0)
+                pub_year_series = orig_vals.copy()
+
+            if has_year:
+                year_vals = pd.to_numeric(read_df[year_col], errors='coerce')
+                pub_year_series = pub_year_series.fillna(year_vals)
+
+            pub_year_series_clean = pub_year_series.apply(lambda x: int(x) if pd.notna(x) else x)
+
+            if pub_year_series_clean.dropna().empty:
+                st.info("No publication year data found.")
+            else:
+                available_years = sorted(set(pub_year_series_clean.dropna().unique()))
+                selected_pub_year = st.selectbox(
+                    "Select a publication year to view books from that year:",
+                    available_years,
+                    key="pub_year_selectbox"
+                )
+
+                mask = pub_year_series_clean == selected_pub_year
+                books_in_year = read_df[mask].copy()
                 books_in_year = books_in_year[['Title', 'Author', 'My Rating', 'Average Rating', 'Date Read']].sort_values(by='Date Read', ascending=False).reset_index(drop=True)
 
                 insights_functions.format_column(books_in_year, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
@@ -117,8 +143,6 @@ def main():
 
                 st.write(f"### Books Published in {selected_pub_year} ({len(books_in_year)} total)")
                 st.table(books_in_year.set_index(pd.Index(range(1, len(books_in_year) + 1))))
-            else:
-                st.info("No publication year data found.")
 
         elif selected_tab == "Top Books":
             st.subheader("Your Top Rated Books")
