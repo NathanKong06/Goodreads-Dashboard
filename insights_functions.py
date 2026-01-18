@@ -151,7 +151,14 @@ def generate_top_authors_chart(df, top_n):
 def generate_top_publishers_chart(df, top_n):
     if 'Publisher' not in df.columns or df['Publisher'].dropna().empty:
         return None
-    top_publishers = df['Publisher'].value_counts().head(top_n).reset_index()
+    publishers = df['Publisher'].dropna().astype(str)
+    publishers_clean = (
+        publishers
+        .str.replace(',', '', regex=False)
+        .str.replace(r"\s+", ' ', regex=True)
+        .str.strip()
+    )
+    top_publishers = publishers_clean.value_counts().head(top_n).reset_index()
     top_publishers.columns = ['Publisher', 'Count']
     fig = px.bar(
         top_publishers,
