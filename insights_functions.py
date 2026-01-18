@@ -155,6 +155,7 @@ def generate_top_publishers_chart(df, top_n):
     publishers_clean = (
         publishers
         .str.replace(',', '', regex=False)
+        .str.replace('.', '', regex=False)
         .str.replace(r"\s+", ' ', regex=True)
         .str.strip()
     )
