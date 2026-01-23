@@ -193,12 +193,39 @@ def generate_binding_distribution_chart(df):
 
 @st.cache_data
 def generate_books_by_year_published_chart(df):
-    if 'Year Published' not in df.columns or df['Year Published'].dropna().empty:
+    orig_col = 'Original Publication Year'
+    year_col = 'Year Published'
+
+    has_orig = orig_col in df.columns
+    has_year = year_col in df.columns
+
+    if not has_orig and not has_year:
         return None
-    year_published = pd.to_numeric(df['Year Published'], errors='coerce').dropna().astype(int)
-    year_counts = year_published.value_counts().reset_index()
-    year_counts.columns = ['Year Published', 'Count']
-    year_counts = year_counts.sort_values('Year Published')
+
+    pub_year_series = pd.Series([pd.NA] * len(df), index=df.index)
+
+    if has_orig:
+        orig_vals = pd.to_numeric(df[orig_col], errors='coerce')
+        orig_vals = orig_vals.where(orig_vals >= 0)
+        pub_year_series = orig_vals.copy()
+
+    if has_year:
+        year_vals = pd.to_numeric(df[year_col], errors='coerce')
+        pub_year_series = pub_year_series.fillna(year_vals)
+
+    pub_year_series = pub_year_series.dropna().astype(int)
+
+    if pub_year_series.empty:
+        return None
+
+    year_counts = (
+        pub_year_series
+        .value_counts()
+        .reset_index()
+        .rename(columns={'index': 'Year Published', 0: 'Count'})
+        .sort_values('Year Published')
+    )
+
     fig = px.bar(
         year_counts,
         x='Year Published',
