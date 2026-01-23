@@ -221,8 +221,8 @@ def generate_books_by_year_published_chart(df):
     year_counts = (
         pub_year_series
         .value_counts()
-        .reset_index()
-        .rename(columns={'index': 'Year Published', 0: 'Count'})
+        .reset_index(name='Count')
+        .rename(columns={'index': 'Year Published'})
         .sort_values('Year Published')
     )
 
