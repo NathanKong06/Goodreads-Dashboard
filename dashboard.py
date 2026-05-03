@@ -64,9 +64,6 @@ def main():
 
         read_df, metrics = insights_functions.calculate_metrics(df_to_use)
         insights_functions.display_metrics(metrics)
-
-        read_df, _ = insights_functions.calculate_metrics(df_to_use)
-
         tab_titles = ["Reading Pace", "Trends & Authors", "Publishers & Binding", "Top Books", "Longest & Shortest Books", "Enrich Data", "Raw Data"]
         
         selected_tab = st.radio(
