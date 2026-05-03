@@ -27,10 +27,18 @@ def main():
         df = insights_functions.preprocess_data(uploaded_file)
         if df is None:
             return  
-        read_df, metrics = insights_functions.calculate_metrics(df)
+
+        if 'enriched_df' in st.session_state:
+            df_to_use = st.session_state.enriched_df
+        else:
+            df_to_use = df
+
+        read_df, metrics = insights_functions.calculate_metrics(df_to_use)
         insights_functions.display_metrics(metrics)
 
-        tab_titles = ["Reading Pace", "Trends & Authors", "Publishers & Binding", "Top Books", "Longest & Shortest Books", "Enrich Data with Genres", "Raw Data"]
+        read_df, _ = insights_functions.calculate_metrics(df_to_use)
+
+        tab_titles = ["Reading Pace", "Trends & Authors", "Publishers & Binding", "Top Books", "Longest & Shortest Books", "Enrich Data", "Raw Data"]
         
         selected_tab = st.radio(
             "Select a section:",
@@ -155,14 +163,13 @@ def main():
         elif selected_tab == "Longest & Shortest Books":
             insights_functions.display_longest_shortest_books(read_df)
 
-        elif selected_tab == "Enrich Data with Genres":
-            st.subheader("Enrich Your Data with Genres")
-            st.write("Would you like to enrich your reading data with genre information from Goodreads? This will fetch genre data for each book in your library.")
-            
-            if st.button("Enrich Library with Genres", key="enrich_button"):
+        elif selected_tab == "Enrich Data":
+            st.subheader("Enrich Your Data (Genres + Ratings)")
+            st.write("Would you like to enrich your reading data with genre information and average ratings from Goodreads? This will fetch both for each book in your library.")            
+            if st.button("Enrich Library (Genres + Ratings)", key="enrich_button"):
                 progress_bar = st.progress(0)
                 status_text = st.empty()
-                status_text.text("Preparing to fetch genre data...")
+                status_text.text("Preparing to fetch genres and ratings...")
 
                 def _progress_callback(done: int, total: int):
                     try:
@@ -175,7 +182,7 @@ def main():
                     try:
                         progress_bar.progress(min(max(pct, 0), 100))
                         if total and total > 0:
-                            status_text.text(f"Fetching genre data... ({done}/{total})")
+                            status_text.text(f"Fetching genres + ratings... ({done}/{total})")
                         else:
                             status_text.text("No books to enrich.")
                     except Exception:
@@ -194,7 +201,9 @@ def main():
                     
                     st.session_state.enriched_df = enriched_df
                     st.session_state.enrichment_complete = True
-                    st.success("Your data has been enriched with genres!")
+
+                    # Force rerun so metrics and charts update
+                    st.rerun()
                 else:
                     st.error("An error occurred while enriching the data.")
             
@@ -236,11 +245,11 @@ def main():
                     if genre_chart:
                         st.plotly_chart(genre_chart, width='stretch')
                     else:
-                        st.info("No genre data available to plot.")
+                        st.info("No genre and rating data available to plot.")
                 else:
                     st.info("No genre data available yet.")
             else:
-                st.info("No genre data available. Click 'Enrich Library with Genres' to fetch genres from Goodreads.")
+                st.info("No genre and rating data available. Click 'Enrich Library (Genres + Ratings)' to fetch genres and ratings from Goodreads.")
 
         elif selected_tab == "Raw Data":
             if 'enriched_df' in st.session_state:

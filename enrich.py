@@ -13,10 +13,10 @@ s = Session()
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
 }
-
-def scrape_book_data(book_id: str) -> Tuple[str, List[str]]:
+def scrape_book_data(book_id: str) -> Tuple[str, List[str], float]:
     url = f"{BASE_URL}{book_id}"
     genres: List[str] = []
+    avg_rating: float = None
 
     time.sleep(DELAY_SECONDS) 
 
@@ -31,14 +31,21 @@ def scrape_book_data(book_id: str) -> Tuple[str, List[str]]:
         for element in genre_elements:
             genre_text = element.get_text().strip()
             genres.append(genre_text)
-        return book_id, genres
+        # Extract Average Rating
+        rating_element = soup.select_one('.RatingStatistics__rating')
+        if rating_element:
+            try:
+                avg_rating = float(rating_element.get_text().strip())
+            except Exception:
+                avg_rating = None
+        return book_id, genres, avg_rating
 
     except HTTPError as e:
         print(f"ERROR: Could not fetch book ID {book_id}. Status: {e.response.status_code}. Skipping.")
-        return book_id, []
+        return book_id, [], None
     except Exception as e:
         print(f"An unexpected error occurred for book ID {book_id}: {e}. Skipping.")
-        return book_id, []
+        return book_id, [], None
 
 def enrich_library(df: pd.DataFrame, progress_callback: Optional[Callable[[int, int], None]] = None) -> Optional[pd.DataFrame]:
     if not isinstance(df, pd.DataFrame):
@@ -91,7 +98,7 @@ def enrich_library(df: pd.DataFrame, progress_callback: Optional[Callable[[int, 
                 results.append(result)
             except Exception as exc:
                 print(exc)
-                results.append((book_id, []))
+                results.append((book_id, [], None))
             finally:
                 completed += 1
                 if progress_callback:
@@ -100,17 +107,29 @@ def enrich_library(df: pd.DataFrame, progress_callback: Optional[Callable[[int, 
                     except Exception:
                         pass
 
-    results_map = {}
-    for book_id, genres in results:
-        if isinstance(genres, (list, tuple)):
-            results_map[book_id] = list(genres)
-        elif pd.isna(genres):
-            results_map[book_id] = []
-        else:
-            results_map[book_id] = [genres]
+    genre_map = {}
+    rating_map = {}
 
-    if results_map:
-        mask = df['Book Id'].isin(results_map.keys())
-        df.loc[mask, 'Genres'] = df.loc[mask, 'Book Id'].map(results_map)
+    for book_id, genres, avg_rating in results:
+        if isinstance(genres, (list, tuple)):
+            genre_map[book_id] = list(genres)
+        elif pd.isna(genres):
+            genre_map[book_id] = []
+        else:
+            genre_map[book_id] = [genres]
+
+        rating_map[book_id] = avg_rating
+
+    if genre_map:
+        mask = df['Book Id'].isin(genre_map.keys())
+        df.loc[mask, 'Genres'] = df.loc[mask, 'Book Id'].map(genre_map)
+
+    if rating_map:
+        mapped_ratings = df['Book Id'].map(rating_map)
+
+        if 'Average Rating' in df.columns:
+            df['Average Rating'] = mapped_ratings.combine_first(df['Average Rating'])
+        else:
+            df['Average Rating'] = mapped_ratings
 
     return df

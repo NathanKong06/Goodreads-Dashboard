@@ -61,7 +61,15 @@ def preprocess_data(uploaded_file):
         if 'Average Rating' in df.columns:
             df['Average Rating'] = pd.to_numeric(df.get('Average Rating'), errors='coerce')
         
-        date_series = pd.to_datetime(df.get('Date Read'), errors='coerce')
+        try:
+            date_series = pd.to_datetime(df.get('Date Read'), format='%m/%d/%Y', errors='coerce')
+
+            if date_series.isna().all():
+                date_series = pd.to_datetime(df.get('Date Read'), errors='coerce')
+
+        except Exception:
+            date_series = pd.to_datetime(df.get('Date Read'), errors='coerce')
+            
         if date_series.isna().all():
             st.warning("Warning: No valid dates found in 'Date Read' column. Some features may not work properly.")
         df['Date Read'] = date_series.dt.date
@@ -379,7 +387,7 @@ def calculate_average_pages_per_book(df):
 
 def display_top_books_by_goodreads_rating(df, top_n):
     if 'Average Rating' not in df.columns:
-        st.info("Average Rating data is not available in this dataset.")
+        st.info("Average Rating data is not available in this dataset. Enrich your data to see this insight.")
         return
 
     top_rated_goodreads = (
