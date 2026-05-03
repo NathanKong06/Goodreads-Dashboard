@@ -50,7 +50,7 @@ def preprocess_data(uploaded_file):
             
         df.columns = df.columns.str.strip()
 
-        required_columns = {'My Rating', 'Average Rating', 'Date Read', 'Author'}
+        required_columns = {'My Rating', 'Date Read', 'Author'}
         missing_columns = required_columns - set(df.columns)
         if missing_columns:
             st.error(f"The uploaded file is missing the following required columns: {', '.join(missing_columns)}")
@@ -58,7 +58,8 @@ def preprocess_data(uploaded_file):
 
         df['My Rating'] = pd.to_numeric(df.get('My Rating', 0), errors='coerce')
         df.loc[df['My Rating'] == 0, 'My Rating'] = pd.NA
-        df['Average Rating'] = pd.to_numeric(df.get('Average Rating'), errors='coerce')
+        if 'Average Rating' in df.columns:
+            df['Average Rating'] = pd.to_numeric(df.get('Average Rating'), errors='coerce')
         
         date_series = pd.to_datetime(df.get('Date Read'), errors='coerce')
         if date_series.isna().all():
@@ -88,7 +89,7 @@ def calculate_metrics(df):
     metrics = {
         "total_books": len(read_df),
         "avg_rating": read_df['My Rating'].mean(),
-        "avg_community_rating": read_df['Average Rating'].mean(),
+        "avg_community_rating": read_df['Average Rating'].mean() if 'Average Rating' in read_df.columns else None,
         "total_authors": unique_authors
     }
     return read_df, metrics
@@ -245,7 +246,10 @@ def display_metrics(metrics):
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Books Read", metrics["total_books"])
     c2.metric("Your Average Rating", f"{metrics['avg_rating']:.2f}" if pd.notna(metrics['avg_rating']) else "N/A")
-    c3.metric("Average Goodreads Rating", f"{metrics['avg_community_rating']:.2f}" if pd.notna(metrics['avg_community_rating']) else "N/A")
+    c3.metric(
+        "Average Goodreads Rating",
+        f"{metrics['avg_community_rating']:.2f}" if metrics.get('avg_community_rating') is not None and pd.notna(metrics['avg_community_rating']) else "N/A"
+    )
     c4.metric("Unique Authors", metrics["total_authors"])
 
 def display_top_rated_books(df, top_n):
@@ -253,11 +257,10 @@ def display_top_rated_books(df, top_n):
         df.dropna(subset=['My Rating'])
         .sort_values(by='My Rating', ascending=False)
         .head(top_n)
-        [['Title', 'Author', 'My Rating', 'Average Rating', 'Date Read']]
+        [['Title', 'Author', 'My Rating', 'Date Read']]
         .reset_index(drop=True)
     )
     format_column(top_rated, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
-    format_column(top_rated, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
     st.subheader(f"Your Top {top_n} Rated Books")
     st.table(top_rated.set_index(pd.Index(range(1, len(top_rated) + 1))))
 
@@ -375,6 +378,10 @@ def calculate_average_pages_per_book(df):
     return total_pages / total_books
 
 def display_top_books_by_goodreads_rating(df, top_n):
+    if 'Average Rating' not in df.columns:
+        st.info("Average Rating data is not available in this dataset.")
+        return
+
     top_rated_goodreads = (
         df.dropna(subset=['Average Rating'])
         .sort_values(by='Average Rating', ascending=False)

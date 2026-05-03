@@ -80,9 +80,8 @@ def main():
                 st.plotly_chart(fig2, width='stretch')
                 selected_author = st.selectbox("Select an author to view their books:", top_authors['Author'], key="author_selectbox")
                 author_books = insights_functions.get_books_by_author(read_df, selected_author)
-                author_books = author_books[['Title', 'Author', 'My Rating', 'Average Rating', 'Date Read']].sort_values(by='Date Read', ascending=False).reset_index(drop=True)
+                author_books = author_books[['Title', 'Author', 'My Rating', 'Date Read']].sort_values(by='Date Read', ascending=False).reset_index(drop=True)
                 insights_functions.format_column(author_books, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
-                insights_functions.format_column(author_books, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
                 st.write(f"### Books by **{selected_author}** ({len(author_books)} total)")
                 st.table(author_books.set_index(pd.Index(range(1, len(author_books) + 1))))
             else:
@@ -137,10 +136,9 @@ def main():
                 pub_year_series_int = pub_year_series_clean.apply(lambda x: int(x) if pd.notna(x) else pd.NA)
                 mask = pub_year_series_int == selected_pub_year
                 books_in_year = read_df[mask].copy()
-                books_in_year = books_in_year[['Title', 'Author', 'My Rating', 'Average Rating', 'Date Read']].sort_values(by='Date Read', ascending=False).reset_index(drop=True)
+                books_in_year = books_in_year[['Title', 'Author', 'My Rating', 'Date Read']].sort_values(by='Date Read', ascending=False).reset_index(drop=True)
 
                 insights_functions.format_column(books_in_year, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
-                insights_functions.format_column(books_in_year, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
 
                 st.write(f"### Books Published in {selected_pub_year} ({len(books_in_year)} total)")
                 st.table(books_in_year.set_index(pd.Index(range(1, len(books_in_year) + 1))))
@@ -251,7 +249,6 @@ def main():
                 display_df = read_df.copy()
             
             insights_functions.format_column(display_df, 'My Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
-            insights_functions.format_column(display_df, 'Average Rating', lambda x: f"{x:.2f}" if pd.notna(x) else "")
             st.dataframe(display_df.set_index(pd.Index(range(1, len(display_df) + 1))))
     else:
         st.info("Upload your Goodreads CSV file to see your reading insights.")
