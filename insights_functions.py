@@ -12,22 +12,24 @@ def handle_missing_pages(df):
         df['Number of Pages'] = pd.to_numeric(df['Number of Pages'], errors='coerce')
         df.loc[df['Number of Pages'] == 0, 'Number of Pages'] = pd.NA
 
-def get_all_authors(df):
-    all_authors = []
-    
-    if 'Author' in df.columns:
-        primary_authors = df['Author'].dropna().tolist()
-        all_authors.extend(primary_authors)
-    
-    if 'Additional Authors' in df.columns:
-        additional_authors = df['Additional Authors'].dropna().tolist()
-        for author_string in additional_authors:
-            if pd.notna(author_string) and str(author_string).strip():
-                authors = [author.strip() for author in str(author_string).split(',')]
-                authors = [' '.join(author.split()) for author in authors if author.strip()]
-                all_authors.extend(authors)
-    
-    return all_authors
+def get_all_authors(df, include_coauthors: bool = False):
+
+    primary_authors = df['Author'].dropna().tolist() if 'Author' in df.columns else []
+
+    if include_coauthors:
+        all_authors = list(primary_authors)
+
+        if 'Additional Authors' in df.columns:
+            additional_authors = df['Additional Authors'].dropna().tolist()
+            for author_string in additional_authors:
+                if pd.notna(author_string) and str(author_string).strip():
+                    authors = [author.strip() for author in str(author_string).split(',')]
+                    authors = [' '.join(author.split()) for author in authors if author.strip()]
+                    all_authors.extend(authors)
+
+        return all_authors
+
+    return primary_authors
 
 def get_books_by_author(df, author_name):
     primary_matches = df['Author'] == author_name if 'Author' in df.columns else pd.Series(False, index=df.index)
@@ -69,7 +71,7 @@ def preprocess_data(uploaded_file):
 
         except Exception:
             date_series = pd.to_datetime(df.get('Date Read'), errors='coerce')
-            
+
         if date_series.isna().all():
             st.warning("Warning: No valid dates found in 'Date Read' column. Some features may not work properly.")
         df['Date Read'] = date_series.dt.date
@@ -127,8 +129,8 @@ def generate_books_per_year_chart(df):
     return fig
 
 @st.cache_data
-def generate_top_authors_chart(df, top_n):
-    all_authors = get_all_authors(df)
+def generate_top_authors_chart(df, top_n, include_coauthors: bool = False):
+    all_authors = get_all_authors(df, include_coauthors=include_coauthors)
     
     if not all_authors:
         return None, None

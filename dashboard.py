@@ -108,8 +108,17 @@ def main():
                 st.plotly_chart(fig1, width='stretch')
 
             st.subheader("Top Authors")
+            include_coauthors = st.toggle(
+                "Include co-authors",
+                value=False,
+                key="include_coauthors_toggle"
+            )
             top_n_authors = st.slider("Select the number of top authors to display:", min_value=5, max_value=20, value=10, key="top_authors_slider")
-            fig2, top_authors = insights_functions.generate_top_authors_chart(read_df, top_n_authors)
+            fig2, top_authors = insights_functions.generate_top_authors_chart(
+                read_df,
+                top_n_authors,
+                include_coauthors=include_coauthors
+            )
             if fig2:
                 st.plotly_chart(fig2, width='stretch')
                 selected_author = st.selectbox("Select an author to view their books:", top_authors['Author'], key="author_selectbox")
