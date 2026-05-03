@@ -74,8 +74,15 @@ def enrich_library(df: pd.DataFrame, progress_callback: Optional[Callable[[int, 
 
         need_enrich_mask = df['Genres'].apply(_is_empty_genres)
 
-    book_ids_list = df.loc[need_enrich_mask, 'Book Id'].unique().tolist()
-    book_ids_list = [id_str for id_str in book_ids_list if id_str.isdigit()]
+    if 'Exclusive Shelf' in df.columns:
+        read_mask = df['Exclusive Shelf'].astype(str).str.lower() == 'read'
+    else:
+        read_mask = df['Date Read'].notna() if 'Date Read' in df.columns else pd.Series(False, index=df.index)
+
+    final_mask = need_enrich_mask & read_mask
+
+    book_ids_list = df.loc[final_mask, 'Book Id'].unique().tolist()
+    book_ids_list = [str(id_str).strip() for id_str in book_ids_list if str(id_str).strip().isdigit()]
 
     if not book_ids_list:
         if progress_callback:
