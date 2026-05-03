@@ -35,6 +35,7 @@ Analyze your reading activity across years and explore your most-read authors.
 * **Chart 1**: **Books Read Each Year** (Bar chart).
 * **Chart 2**: **Top N Authors by Books Read** (Bar chart, including co-authors).
 * **Interactive Table**: Select an author to view a detailed list of the books you've read by them.
+* **Filter Option**: Toggle to include co-authors in author statistics.
 
 ![Reading Trends](./screenshots/trends.png)
 
@@ -45,6 +46,7 @@ Insights into the production aspects of your library.
 * **Chart 1**: **Top N Publishers by Books Read** (Bar chart).
 * **Chart 2**: **Binding Distribution** (Pie chart).
 * **Chart 3**: **Books Read by Year of Publication** (Bar chart).
+* **Interactive Table**: Select a publication year to view all books you read from that year.
 
 ![Binding Distribution](./screenshots/binding.png)
 
@@ -71,6 +73,7 @@ Identifies the books at the extremes of your collection's page counts.
 A powerful feature to enhance your dataset by scraping genre information from Goodreads.
 
 * **Functionality**: Uses multi-threaded web scraping via `enrich.py` to add a 'Genres' column to your DataFrame based on the book's 'Book Id'.
+* **Progress Feedback**: Displays a progress bar while scraping genres and average ratings using multi-threaded requests.
 * **Output**: Allows you to **Download the Enriched CSV** and optionally save it to a local path.
 * **Chart**: **Top N Genres** (Bar chart) based on the enriched data.
 
